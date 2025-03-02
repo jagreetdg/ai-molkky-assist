@@ -1,14 +1,15 @@
-import React, { useState } from "react";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import GameScreen from "./src/screens/GameScreen";
-import CameraScreen from "./src/screens/CameraScreen";
-import StrategyScreen from "./src/screens/StrategyScreen";
+import CameraScreen from "./screens/CameraScreen";
+import StrategyScreen from "./screens/StrategyScreen";
+import GameScreen from "./screens/GameScreen";
 
 const Stack = createStackNavigator();
 
 export default function App() {
 	return (
+		// Only wrap the navigator with NavigationContainer once
 		<NavigationContainer>
 			<Stack.Navigator initialRouteName="Game">
 				<Stack.Screen
