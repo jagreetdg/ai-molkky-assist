@@ -36,7 +36,7 @@ export const updatePlayerScore = (gameState: GameState, score: number): GameStat
       const newConsecutiveMisses = score === 0 ? currentPlayer.consecutiveMisses + 1 : 0;
       const newScore = score === 0 
         ? currentPlayer.score 
-        : (currentPlayer.score + score > 50 ? 25 : currentPlayer.score + score);
+        : (currentPlayer.score + score <= 50 ? currentPlayer.score + score : 25);
       
       const player: Player = {
         id: currentPlayer.id,

@@ -13,6 +13,7 @@ interface ThemeColors {
   warning: string;
   info: string;
   accent: string;
+  disabled: string;
 }
 
 interface ThemeContextType {
@@ -33,6 +34,7 @@ const lightTheme: ThemeColors = {
   warning: '#f39c12',
   info: '#3498db',
   accent: '#e67e22',
+  disabled: '#95a5a6',
 };
 
 const darkTheme: ThemeColors = {
@@ -47,6 +49,7 @@ const darkTheme: ThemeColors = {
   warning: '#f39c12',
   info: '#3498db',
   accent: '#e67e22',
+  disabled: '#7f8c8d',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

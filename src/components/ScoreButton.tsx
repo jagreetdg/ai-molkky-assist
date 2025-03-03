@@ -8,6 +8,7 @@ interface ScoreButtonProps {
   isMiss?: boolean;
   disabled?: boolean;
   color?: string;
+  selected?: boolean;
 }
 
 const ScoreButton: React.FC<ScoreButtonProps> = ({ 
@@ -15,7 +16,8 @@ const ScoreButton: React.FC<ScoreButtonProps> = ({
   onPress, 
   isMiss = false,
   disabled = false,
-  color
+  color,
+  selected = false
 }) => {
   const { colors } = useTheme();
   
@@ -30,7 +32,8 @@ const ScoreButton: React.FC<ScoreButtonProps> = ({
       style={[
         styles.button,
         { backgroundColor },
-        disabled && { opacity: 0.5 }
+        disabled && { opacity: 0.5 },
+        selected && styles.selectedButton
       ]}
       onPress={onPress}
       disabled={disabled}
@@ -58,6 +61,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
+  },
+  selectedButton: {
+    borderColor: 'white',
+    borderWidth: 2,
   },
   pinContainer: {
     width: '100%',

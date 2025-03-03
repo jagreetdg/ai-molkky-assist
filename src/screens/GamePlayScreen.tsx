@@ -30,6 +30,9 @@ const GamePlayScreen = () => {
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
   const [localGameState, setLocalGameState] = useState<GameState | null>(null);
   const [showScoreModal, setShowScoreModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showUndoModal, setShowUndoModal] = useState(false);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [scoreUpdateInfo, setScoreUpdateInfo] = useState<{
     playerName: string;
     previousScore: number;
@@ -38,6 +41,9 @@ const GamePlayScreen = () => {
     consecutiveMisses: number;
   } | null>(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
+  const gameOverFadeAnim = useState(new Animated.Value(0))[0];
+  const undoFadeAnim = useState(new Animated.Value(0))[0];
+  const resetFadeAnim = useState(new Animated.Value(0))[0];
   
   // Ensure we have a valid game state from context
   const gameState = contextGameState;
@@ -84,30 +90,42 @@ const GamePlayScreen = () => {
 
   // Handle game over
   useEffect(() => {
-    if (gameState?.gameOver) {
-      Alert.alert(
-        'Game Over',
-        gameState.winner 
-          ? `${gameState.winner.name} wins with a score of ${gameState.winner.score}!` 
-          : 'Game over!',
-        [
-          { 
-            text: 'New Game', 
-            onPress: () => {
-              resetGame();
-              navigation.navigate('GameSetup');
-            } 
-          },
-          {
-            text: 'View Results',
-            style: 'cancel',
-          }
-        ]
-      );
+    let isMounted = true; // Track if component is still mounted
+    
+    // Fix for game over modal being triggered repeatedly
+    // Only show the modal once and only when the game transitions to over state
+    if (gameState?.gameOver && !showGameOverModal && !localGameState?.gameOver) {
+      // Update local game state to track when we've shown the modal
+      setLocalGameState(gameState);
+      
+      // Show the custom game over modal instead of the Alert
+      if (isMounted) {
+        setShowGameOverModal(true);
+        
+        // Animate the fade in
+        Animated.timing(gameOverFadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }).start();
+      }
+    } else if (!gameState?.gameOver && localGameState?.gameOver) {
+      // Reset local game state tracking when game is no longer over
+      if (isMounted) {
+        setLocalGameState(gameState);
+      }
     }
-  }, [gameState?.gameOver, gameState?.winner, navigation, resetGame]);
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
+  }, [gameState, localGameState, gameOverFadeAnim, showGameOverModal]);
 
   const handlePinSelection = (pin: number) => {
+    // Don't allow pin selection if game is over
+    if (gameState?.gameOver) return;
+    
     // If the pin is already selected, deselect it
     if (selectedPin === pin) {
       setSelectedPin(null);
@@ -118,46 +136,19 @@ const GamePlayScreen = () => {
   };
 
   const handleScoreSubmit = () => {
-    // If no pin is selected, score is 0
+    // Don't allow score submission if game is over
+    if (gameState?.gameOver) return;
+    
+    // If no pin is selected, treat it as a miss (0)
     const score = selectedPin !== null ? selectedPin : 0;
-    console.log("Submitting score:", score);
-    console.log("Current game state:", gameState);
     
-    // Check if we have a valid game state
-    if (!gameState) {
-      console.error("No game state found! Cannot update score.");
-      return;
-    }
+    if (!gameState) return; // Guard clause for type safety
     
-    // Get the active player before updating
     const activePlayer = getActivePlayer(gameState);
-    if (!activePlayer) {
-      console.error("No active player found! Cannot update score.");
-      return;
-    }
+    if (!activePlayer) return; // Guard clause for type safety
     
     const previousScore = activePlayer.score;
-    
-    // Calculate what the new score will be (following the same logic as in gameService)
-    let newScore = previousScore;
-    if (score > 0) {
-      newScore = previousScore + score > 50 ? 25 : previousScore + score;
-    }
-    
-    // Calculate new consecutive misses
-    const newConsecutiveMisses = score === 0 ? activePlayer.consecutiveMisses + 1 : 0;
-    
-    // Set the score update info for the modal
-    setScoreUpdateInfo({
-      playerName: activePlayer.name,
-      previousScore,
-      newScore,
-      scoreAdded: score,
-      consecutiveMisses: newConsecutiveMisses
-    });
-    
-    // Show the modal
-    setShowScoreModal(true);
+    const isLastPlayer = gameState?.players.findIndex(p => p.id === activePlayer.id) === gameState.players.length - 1;
     
     // Animate the fade in
     Animated.timing(fadeAnim, {
@@ -169,15 +160,51 @@ const GamePlayScreen = () => {
     // Update the player's score through context
     updatePlayerScore(score);
     
+    // Set score update info for the modal
+    setScoreUpdateInfo({
+      playerName: activePlayer.name,
+      previousScore,
+      newScore: score === 0 
+        ? previousScore 
+        : (previousScore + score <= 50 ? previousScore + score : 25),
+      scoreAdded: score,
+      consecutiveMisses: score === 0 ? activePlayer.consecutiveMisses + 1 : 0
+    });
+    
+    // Show the modal but check if game is over first 
+    // If game is now over, the Game Over modal will show instead
+    if (!gameState?.gameOver) {
+      setShowScoreModal(true);
+    }
+    
     // Reset selected pin after scoring
     setSelectedPin(null);
   };
 
   const handleUndoPress = () => {
+    // Show the undo modal
+    setShowUndoModal(true);
+    
+    // Animate the fade in
+    Animated.timing(undoFadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true
+    }).start();
+  };
+
+  const confirmUndo = () => {
+    // Perform the undo action
     undoLastMove();
+    
+    // Close the modal with animation
+    handleCloseUndoModal();
   };
 
   const handleCloseScoreModal = () => {
+    // Stop any ongoing animations
+    fadeAnim.stopAnimation();
+    
     // Animate the fade out
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -185,30 +212,98 @@ const GamePlayScreen = () => {
       useNativeDriver: true
     }).start(() => {
       setShowScoreModal(false);
+      
+      // Reset fadeAnim to 0 to ensure it's ready for next animation
+      fadeAnim.setValue(0);
+    });
+  };
+
+  const handleCloseUndoModal = () => {
+    // Stop any ongoing animations
+    undoFadeAnim.stopAnimation();
+    
+    // Animate the fade out
+    Animated.timing(undoFadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowUndoModal(false);
+      
+      // Reset undoFadeAnim to 0 to ensure it's ready for next animation
+      undoFadeAnim.setValue(0);
+    });
+  };
+
+  const handleCloseResetModal = () => {
+    // Stop any ongoing animations
+    resetFadeAnim.stopAnimation();
+    
+    // Animate the fade out
+    Animated.timing(resetFadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowResetModal(false);
+      
+      // Reset resetFadeAnim to 0 to ensure it's ready for next animation
+      resetFadeAnim.setValue(0);
+    });
+  };
+
+  const handleCloseGameOverModal = () => {
+    // Stop any ongoing animations
+    gameOverFadeAnim.stopAnimation();
+    
+    // Animate the fade out
+    Animated.timing(gameOverFadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowGameOverModal(false);
+      
+      // Reset gameOverFadeAnim to 0 to ensure it's ready for next animation
+      gameOverFadeAnim.setValue(0);
     });
   };
 
   const handleResetPress = () => {
-    Alert.alert(
-      "Reset Game",
-      "Are you sure you want to reset the entire game? This action cannot be undone.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        { 
-          text: "Reset", 
-          onPress: () => resetGame(),
-          style: "destructive"
-        }
-      ]
-    );
+    // Show the custom reset modal instead of the Alert
+    setShowResetModal(true);
+    
+    // Animate the fade in
+    Animated.timing(resetFadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true
+    }).start();
   };
 
   const handleCameraPress = () => {
+    // Don't allow camera access if game is over
+    if (gameState?.gameOver) return;
+    
     // Navigate directly to the Camera screen
     navigation.navigate('Camera');
+  };
+
+  const handleNewGame = () => {
+    // Reset the game and navigate to setup
+    resetGame();
+    navigation.navigate('GameSetup');
+    
+    // Close the modal with animation
+    handleCloseGameOverModal();
+  };
+
+  const handleResetConfirm = () => {
+    // Reset the game
+    resetGame();
+    
+    // Close the modal with animation
+    handleCloseResetModal();
   };
 
   if (!gameState || !gameState.players || gameState.players.length === 0) {
@@ -242,7 +337,8 @@ const GamePlayScreen = () => {
   }
 
   const activePlayer = getActivePlayer(gameState);
-  const playerRankings = gameState.players ? getPlayerRanking(gameState.players) : [];
+  // Use the original player order instead of ranking by score
+  const playersList = gameState.players || [];
 
   // Define the pins in the actual Mölkky board layout
   // Front row (closest to the player)
@@ -259,9 +355,24 @@ const GamePlayScreen = () => {
       {/* Current Player Section */}
       <View style={styles.currentPlayerSection}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Player</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {gameState?.gameOver ? 'Game Over' : 'Current Player'}
+          </Text>
         </View>
-        {activePlayer ? (
+        {gameState?.gameOver ? (
+          <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
+            <View style={styles.activePlayerHeader}>
+              <Text style={[styles.playerName, { color: colors.text }]}>
+                {gameState.winner ? `${gameState.winner.name} Wins!` : 'Game Over'}
+              </Text>
+            </View>
+            {gameState.winner && (
+              <Text style={[styles.playerScore, { color: colors.text }]}>
+                Final Score: {gameState.winner.score}
+              </Text>
+            )}
+          </View>
+        ) : activePlayer ? (
           <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
             <View style={styles.activePlayerHeader}>
               <Text style={[styles.playerName, { color: colors.text }]}>{activePlayer.name}</Text>
@@ -292,8 +403,10 @@ const GamePlayScreen = () => {
                   <ScoreButton 
                     key={pin}
                     value={pin} 
+                    selected={selectedPin === pin} 
                     onPress={() => handlePinSelection(pin)} 
                     color={selectedPin === pin ? colors.accent : colors.primary} 
+                    disabled={gameState?.gameOver}
                   />
                 ))}
               </View>
@@ -304,8 +417,10 @@ const GamePlayScreen = () => {
                   <ScoreButton 
                     key={pin}
                     value={pin} 
+                    selected={selectedPin === pin} 
                     onPress={() => handlePinSelection(pin)} 
                     color={selectedPin === pin ? colors.accent : colors.primary} 
+                    disabled={gameState?.gameOver}
                   />
                 ))}
               </View>
@@ -316,8 +431,10 @@ const GamePlayScreen = () => {
                   <ScoreButton 
                     key={pin}
                     value={pin} 
+                    selected={selectedPin === pin} 
                     onPress={() => handlePinSelection(pin)} 
                     color={selectedPin === pin ? colors.accent : colors.primary} 
+                    disabled={gameState?.gameOver}
                   />
                 ))}
               </View>
@@ -328,8 +445,10 @@ const GamePlayScreen = () => {
                   <ScoreButton 
                     key={pin}
                     value={pin} 
+                    selected={selectedPin === pin} 
                     onPress={() => handlePinSelection(pin)} 
                     color={selectedPin === pin ? colors.accent : colors.primary} 
+                    disabled={gameState?.gameOver}
                   />
                 ))}
               </View>
@@ -339,8 +458,16 @@ const GamePlayScreen = () => {
             <View style={styles.actionButtonsRow}>
               {/* Score Submit Button */}
               <TouchableOpacity
-                style={[styles.scoreSubmitButton, { backgroundColor: colors.success, flex: 2 }]}
+                style={[
+                  styles.scoreSubmitButton, 
+                  { 
+                    backgroundColor: gameState?.gameOver ? colors.disabled : colors.success, 
+                    flex: 2,
+                    opacity: gameState?.gameOver ? 0.5 : 1
+                  }
+                ]}
                 onPress={handleScoreSubmit}
+                disabled={gameState?.gameOver}
               >
                 <Text style={styles.scoreSubmitButtonText}>
                   Score {selectedPin !== null ? selectedPin : '0'}
@@ -367,8 +494,15 @@ const GamePlayScreen = () => {
             {/* Camera Button Row */}
             <View style={styles.cameraButtonRow}>
               <TouchableOpacity
-                style={[styles.cameraButton, { backgroundColor: colors.primary }]}
+                style={[
+                  styles.cameraButton, 
+                  { 
+                    backgroundColor: gameState?.gameOver ? colors.disabled : colors.primary,
+                    opacity: gameState?.gameOver ? 0.5 : 1
+                  }
+                ]}
                 onPress={handleCameraPress}
+                disabled={gameState?.gameOver}
               >
                 <Ionicons name="camera-outline" size={24} color="white" />
                 <Text style={styles.cameraButtonText}>Analyze with AI</Text>
@@ -391,13 +525,13 @@ const GamePlayScreen = () => {
         )}
       </View>
 
-      {/* Player Rankings */}
+      {/* Players List */}
       <View style={styles.rankingsSection}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Player Rankings</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Players List</Text>
         </View>
         <FlatList
-          data={playerRankings}
+          data={playersList}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index }) => (
             <PlayerScoreCard
@@ -418,95 +552,293 @@ const GamePlayScreen = () => {
         visible={showScoreModal}
         transparent={true}
         animationType="fade"
+        onRequestClose={handleCloseScoreModal}
       >
-        <View style={styles.scoreUpdateModalContainer}>
-          <Animated.View style={[styles.scoreUpdateModal, { opacity: fadeAnim, backgroundColor: colors.card }]}>
-            <View style={styles.scoreUpdateModalHeader}>
-              <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Score Update</Text>
-              <TouchableOpacity
-                style={styles.scoreUpdateModalCloseButton}
-                onPress={handleCloseScoreModal}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.scoreUpdateModalContent}>
-              {scoreUpdateInfo && (
-                <>
-                  <View style={styles.playerInfoRow}>
-                    <Ionicons name="person" size={24} color={colors.primary} />
-                    <Text style={[styles.playerInfoText, { color: colors.text }]}>
-                      {scoreUpdateInfo.playerName}
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.scoreChangeContainer}>
-                    <View style={styles.scoreBox}>
-                      <Text style={[styles.scoreLabel, { color: colors.text }]}>Previous</Text>
-                      <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.previousScore}</Text>
+        <TouchableOpacity 
+          style={styles.scoreUpdateModalContainer}
+          activeOpacity={1}
+          onPress={handleCloseScoreModal}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Animated.View style={[styles.scoreUpdateModal, { opacity: fadeAnim, backgroundColor: colors.card }]}>
+              <View style={styles.scoreUpdateModalHeader}>
+                <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Score Update</Text>
+                <TouchableOpacity
+                  style={styles.scoreUpdateModalCloseButton}
+                  onPress={handleCloseScoreModal}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.scoreUpdateModalContent}>
+                {scoreUpdateInfo && (
+                  <>
+                    <View style={styles.playerInfoRow}>
+                      <Ionicons name="person" size={24} color={colors.primary} />
+                      <Text style={[styles.playerInfoText, { color: colors.text }]}>
+                        {scoreUpdateInfo.playerName}
+                      </Text>
                     </View>
                     
-                    <View style={styles.scoreArrow}>
+                    <View style={styles.scoreChangeContainer}>
+                      <View style={styles.scoreBox}>
+                        <Text style={[styles.scoreLabel, { color: colors.text }]}>Previous</Text>
+                        <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.previousScore}</Text>
+                      </View>
+                      
+                      <View style={styles.scoreArrow}>
+                        <Ionicons 
+                          name="arrow-forward" 
+                          size={24} 
+                          color={scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning} 
+                        />
+                      </View>
+                      
+                      <View style={styles.scoreBox}>
+                        <Text style={[styles.scoreLabel, { color: colors.text }]}>New</Text>
+                        <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.newScore}</Text>
+                      </View>
+                    </View>
+                    
+                    <View style={[styles.scoreAddedContainer, { 
+                      backgroundColor: scoreUpdateInfo.scoreAdded > 0 
+                        ? 'rgba(75, 181, 67, 0.1)' 
+                        : 'rgba(255, 193, 7, 0.1)' 
+                    }]}>
                       <Ionicons 
-                        name="arrow-forward" 
+                        name={scoreUpdateInfo.scoreAdded > 0 ? "add-circle" : "remove-circle"} 
                         size={24} 
                         color={scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning} 
                       />
-                    </View>
-                    
-                    <View style={styles.scoreBox}>
-                      <Text style={[styles.scoreLabel, { color: colors.text }]}>New</Text>
-                      <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.newScore}</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={[styles.scoreAddedContainer, { 
-                    backgroundColor: scoreUpdateInfo.scoreAdded > 0 
-                      ? 'rgba(75, 181, 67, 0.1)' 
-                      : 'rgba(255, 193, 7, 0.1)' 
-                  }]}>
-                    <Ionicons 
-                      name={scoreUpdateInfo.scoreAdded > 0 ? "add-circle" : "remove-circle"} 
-                      size={24} 
-                      color={scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning} 
-                    />
-                    <Text style={[styles.scoreAddedText, { 
-                      color: scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning 
-                    }]}>
-                      {scoreUpdateInfo.scoreAdded > 0 
-                        ? `Added ${scoreUpdateInfo.scoreAdded} points` 
-                        : 'Missed shot'}
-                    </Text>
-                  </View>
-                  
-                  {scoreUpdateInfo.consecutiveMisses > 0 && (
-                    <View style={styles.missesContainer}>
-                      <MissIndicator 
-                        consecutiveMisses={scoreUpdateInfo.consecutiveMisses} 
-                        size="small" 
-                        colors={colors}
-                      />
-                      <Text style={[styles.missesText, { color: colors.text }]}>
-                        {scoreUpdateInfo.consecutiveMisses === 1 
-                          ? '1 consecutive miss' 
-                          : `${scoreUpdateInfo.consecutiveMisses} consecutive misses`}
-                        {scoreUpdateInfo.consecutiveMisses >= 3 && ' - Eliminated!'}
+                      <Text style={[styles.scoreAddedText, { 
+                        color: scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning 
+                      }]}>
+                        {scoreUpdateInfo.scoreAdded > 0 
+                          ? `Added ${scoreUpdateInfo.scoreAdded} points` 
+                          : 'Missed shot'}
                       </Text>
                     </View>
-                  )}
-                </>
-              )}
-            </View>
-            
-            <TouchableOpacity
-              style={[styles.closeModalButton, { backgroundColor: colors.primary }]}
-              onPress={handleCloseScoreModal}
-            >
-              <Text style={styles.closeModalButtonText}>Continue</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
+                    
+                    {scoreUpdateInfo.consecutiveMisses > 0 && (
+                      <View style={styles.missesContainer}>
+                        <MissIndicator 
+                          consecutiveMisses={scoreUpdateInfo.consecutiveMisses} 
+                          size="small" 
+                          colors={colors}
+                        />
+                        <Text style={[styles.missesText, { color: colors.text }]}>
+                          {scoreUpdateInfo.consecutiveMisses === 1 
+                            ? '1 consecutive miss' 
+                            : `${scoreUpdateInfo.consecutiveMisses} consecutive misses`}
+                          {scoreUpdateInfo.consecutiveMisses >= 3 && ' - Eliminated!'}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+              
+              <TouchableOpacity
+                style={[styles.closeModalButton, { backgroundColor: colors.primary, alignSelf: 'center' }]}
+                onPress={handleCloseScoreModal}
+              >
+                <Text style={styles.closeModalButtonText}>Continue</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Game Over Modal */}
+      <Modal
+        visible={showGameOverModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseGameOverModal}
+      >
+        <TouchableOpacity 
+          style={styles.scoreUpdateModalContainer}
+          activeOpacity={1}
+          onPress={handleCloseGameOverModal}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Animated.View style={[styles.scoreUpdateModal, { opacity: gameOverFadeAnim, backgroundColor: colors.card }]}>
+              <View style={styles.scoreUpdateModalHeader}>
+                <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Game Over</Text>
+                <TouchableOpacity
+                  style={styles.scoreUpdateModalCloseButton}
+                  onPress={handleCloseGameOverModal}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.scoreUpdateModalContent}>
+                {/* Winning Player Info */}
+                {gameState?.winner && (
+                  <>
+                    <View style={styles.playerInfoRow}>
+                      <Ionicons name="trophy" size={24} color={colors.primary} />
+                      <Text style={[styles.playerInfoText, { color: colors.text, fontWeight: 'bold' }]}>
+                        {gameState.winner.name} Wins!
+                      </Text>
+                    </View>
+                    
+                    {/* Score Info */}
+                    <View style={styles.scoreChangeContainer}>
+                      <View style={styles.scoreBox}>
+                        <Text style={[styles.scoreLabel, { color: colors.text }]}>Final Score</Text>
+                        <Text style={[styles.scoreValue, { color: colors.text }]}>{gameState.winner.score}</Text>
+                      </View>
+                    </View>
+
+                    {/* Show Last Move if scoreUpdateInfo exists */}
+                    {scoreUpdateInfo && (
+                      <>
+                        <View style={[styles.scoreAddedContainer, { 
+                          backgroundColor: 'rgba(75, 181, 67, 0.1)',
+                          marginTop: 15
+                        }]}>
+                          <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+                          <Text style={[styles.scoreAddedText, { color: colors.success }]}>
+                            Game-Winning Move!
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                  </>
+                )}
+              </View>
+              
+              <View style={styles.gameOverButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.gameOverButton, { backgroundColor: colors.primary }]}
+                  onPress={handleNewGame}
+                >
+                  <Text style={styles.gameOverButtonText}>New Game</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.gameOverButton, { backgroundColor: colors.accent }]}
+                  onPress={handleCloseGameOverModal}
+                >
+                  <Text style={styles.gameOverButtonText}>View Results</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Undo Modal */}
+      <Modal
+        visible={showUndoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseUndoModal}
+      >
+        <TouchableOpacity 
+          style={styles.scoreUpdateModalContainer}
+          activeOpacity={1}
+          onPress={handleCloseUndoModal}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Animated.View style={[styles.scoreUpdateModal, { opacity: undoFadeAnim, backgroundColor: colors.card }]}>
+              <View style={styles.scoreUpdateModalHeader}>
+                <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Undo Last Move</Text>
+                <TouchableOpacity
+                  style={styles.scoreUpdateModalCloseButton}
+                  onPress={handleCloseUndoModal}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.scoreUpdateModalContent}>
+                <Text style={[styles.scoreUpdateModalText, { color: colors.text, fontSize: 16, marginBottom: 15, textAlign: 'center' }]}>
+                  Are you sure you want to undo the last move? This action cannot be undone.
+                </Text>
+              </View>
+              
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.undoButton, { backgroundColor: colors.warning, flex: 1 }]}
+                  onPress={handleCloseUndoModal}
+                >
+                  <Text style={styles.undoButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.resetButton, { backgroundColor: colors.error, flex: 1 }]}
+                  onPress={confirmUndo}
+                >
+                  <Text style={styles.resetButtonText}>Undo</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Reset Modal */}
+      <Modal
+        visible={showResetModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleCloseResetModal}
+      >
+        <TouchableOpacity 
+          style={styles.scoreUpdateModalContainer}
+          activeOpacity={1}
+          onPress={handleCloseResetModal}
+        >
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Animated.View style={[styles.scoreUpdateModal, { opacity: resetFadeAnim, backgroundColor: colors.card }]}>
+              <View style={styles.scoreUpdateModalHeader}>
+                <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Reset Game</Text>
+                <TouchableOpacity
+                  style={styles.scoreUpdateModalCloseButton}
+                  onPress={handleCloseResetModal}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.scoreUpdateModalContent}>
+                <Text style={[styles.scoreUpdateModalText, { color: colors.text, fontSize: 16, marginBottom: 15, textAlign: 'center' }]}>
+                  Are you sure you want to reset the entire game? This action cannot be undone.
+                </Text>
+              </View>
+              
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.undoButton, { backgroundColor: colors.warning, flex: 1 }]}
+                  onPress={handleCloseResetModal}
+                >
+                  <Text style={styles.undoButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.resetButton, { backgroundColor: colors.error, flex: 1 }]}
+                  onPress={handleResetConfirm}
+                >
+                  <Text style={styles.resetButtonText}>Reset</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -693,7 +1025,8 @@ const styles = StyleSheet.create({
   },
   scoreUpdateModalText: {
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 15,
+    textAlign: 'center',
   },
   playerInfoRow: {
     flexDirection: 'row',
@@ -750,7 +1083,44 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   closeModalButton: {
-    padding: 16,
+    padding: 10,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  closeModalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  errorText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  undoButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  resetButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  gameOverButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+    width: '100%',
+  },
+  gameOverButton: {
+    padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -759,16 +1129,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
+    flex: 1,
+    marginHorizontal: 5,
   },
-  closeModalButtonText: {
+  gameOverButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-  },
-  errorText: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
   },
 });
 
