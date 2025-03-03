@@ -1,17 +1,19 @@
-import { GameState, Player, GameHistory } from '../types';
+import { GameState, Player, GameHistory } from '../types/index';
 
-// Remove any unused functions
 export const createNewGame = (playerNames: string[]): GameState => {
-  const players: Player[] = playerNames.map((name, index) => ({
-    id: `player-${index}`,
-    name,
-    score: 0,
-    consecutiveMisses: 0,
-    isEliminated: false,
-    isActive: index === 0,  // First player starts as active
-  }));
+  const players = playerNames.map((name, index) => {
+    const player: Player = {
+      id: `player-${index}`,
+      name,
+      score: 0,
+      consecutiveMisses: 0,
+      isEliminated: false,
+      isActive: index === 0  // First player starts as active
+    };
+    return player;
+  });
 
-  return {
+  const gameState: GameState = {
     players,
     currentPlayerIndex: 0,
     round: 1,
@@ -19,29 +21,46 @@ export const createNewGame = (playerNames: string[]): GameState => {
     winner: null,
     history: [],
   };
+  return gameState;
 };
 
 export const updatePlayerScore = (gameState: GameState, score: number): GameState => {
   const { players, currentPlayerIndex, round } = gameState;
   const currentPlayer = players[currentPlayerIndex];
 
-  // Create a new players array with updated player
-  const updatedPlayers = players.map((player: Player) => ({
-    ...player,
-    isActive: false
-  }));
+  // Create a new players array
+  const updatedPlayers: Player[] = [];
   
-  // Update the current player
-  updatedPlayers[currentPlayerIndex] = {
-    id: currentPlayer.id,
-    name: currentPlayer.name,
-    score: score === 0 
-      ? currentPlayer.score 
-      : (currentPlayer.score + score > 50 ? 25 : currentPlayer.score + score),
-    consecutiveMisses: score === 0 ? (currentPlayer.consecutiveMisses + 1) : 0,
-    isEliminated: score === 0 ? ((currentPlayer.consecutiveMisses + 1) >= 3) : currentPlayer.isEliminated,
-    isActive: false
-  };
+  for (let i = 0; i < players.length; i++) {
+    if (i === currentPlayerIndex) {
+      // Update current player
+      const newConsecutiveMisses = score === 0 ? currentPlayer.consecutiveMisses + 1 : 0;
+      const newScore = score === 0 
+        ? currentPlayer.score 
+        : (currentPlayer.score + score > 50 ? 25 : currentPlayer.score + score);
+      
+      const player: Player = {
+        id: currentPlayer.id,
+        name: currentPlayer.name,
+        score: newScore,
+        consecutiveMisses: newConsecutiveMisses,
+        isEliminated: score === 0 ? newConsecutiveMisses >= 3 : currentPlayer.isEliminated,
+        isActive: false
+      };
+      updatedPlayers.push(player);
+    } else {
+      // Copy other players with isActive set to false
+      const player: Player = {
+        id: players[i].id,
+        name: players[i].name,
+        score: players[i].score,
+        consecutiveMisses: players[i].consecutiveMisses,
+        isEliminated: players[i].isEliminated,
+        isActive: false
+      };
+      updatedPlayers.push(player);
+    }
+  }
 
   // Find next non-eliminated player
   let nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
@@ -57,10 +76,16 @@ export const updatePlayerScore = (gameState: GameState, score: number): GameStat
 
   // Set the next player as active
   if (!gameState.gameOver) {
-    updatedPlayers[nextPlayerIndex] = {
-      ...updatedPlayers[nextPlayerIndex],
+    const nextPlayer = updatedPlayers[nextPlayerIndex];
+    const activePlayer: Player = {
+      id: nextPlayer.id,
+      name: nextPlayer.name,
+      score: nextPlayer.score,
+      consecutiveMisses: nextPlayer.consecutiveMisses,
+      isEliminated: nextPlayer.isEliminated,
       isActive: true
     };
+    updatedPlayers[nextPlayerIndex] = activePlayer;
   }
 
   // Check if game is over
@@ -77,17 +102,19 @@ export const updatePlayerScore = (gameState: GameState, score: number): GameStat
     playerName: currentPlayer.name,
     round,
     score,
+    totalScore: score === 0 ? currentPlayer.score : (currentPlayer.score + score > 50 ? 25 : currentPlayer.score + score),
     timestamp: Date.now(),
   };
 
-  return {
+  const newGameState: GameState = {
     players: updatedPlayers,
     currentPlayerIndex: nextPlayerIndex,
     round: newRound,
     gameOver,
     winner: winner || (activePlayers.length === 1 ? activePlayers[0] : null),
-    history: [...gameState.history, historyEntry],
+    history: gameState.history.concat([historyEntry]),
   };
+  return newGameState;
 };
 
 export const getActivePlayer = (gameState: GameState): Player | null => {
@@ -96,7 +123,7 @@ export const getActivePlayer = (gameState: GameState): Player | null => {
 };
 
 export const getPlayerRanking = (players: Player[]): Player[] => {
-  return [...players].sort((a, b) => {
+  return players.slice().sort((a, b) => {
     if (a.isEliminated && !b.isEliminated) return 1;
     if (!a.isEliminated && b.isEliminated) return -1;
     return b.score - a.score;

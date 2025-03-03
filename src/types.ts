@@ -4,6 +4,7 @@ export interface Player {
   score: number;
   isActive: boolean;
   consecutiveMisses?: number;
+  isEliminated: boolean;
 }
 
 export interface GameState {

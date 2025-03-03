@@ -12,9 +12,8 @@ import {
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList, PinState, OptimalMove } from '../types/index';
 import { detectPinsFromImage, calculateOptimalMove } from '../services/imageAnalysisService';
-import { PinState, OptimalMove } from '../types';
 
 type AnalysisScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Analysis'>;
 type AnalysisScreenRouteProp = RouteProp<RootStackParamList, 'Analysis'>;
@@ -24,7 +23,7 @@ const { width } = Dimensions.get('window');
 const AnalysisScreen = () => {
   const navigation = useNavigation<AnalysisScreenNavigationProp>();
   const route = useRoute<AnalysisScreenRouteProp>();
-  const { imageUri, gameState } = route.params;
+  const { imageUri } = route.params;
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [pinStates, setPinStates] = useState<PinState[]>([]);
@@ -39,7 +38,7 @@ const AnalysisScreen = () => {
         setPinStates(detectedPins);
         
         // Calculate the optimal move
-        const move = calculateOptimalMove(gameState, detectedPins);
+        const move = calculateOptimalMove(detectedPins);
         setOptimalMove(move);
       } catch (error) {
         console.error('Error analyzing image:', error);
@@ -50,7 +49,7 @@ const AnalysisScreen = () => {
     };
     
     analyzeImage();
-  }, [imageUri, gameState]);
+  }, [imageUri]);
   
   const renderPinOverlay = () => {
     if (pinStates.length === 0) return null;
@@ -59,7 +58,7 @@ const AnalysisScreen = () => {
       <View style={styles.pinOverlayContainer}>
         {pinStates.map((pin) => (
           <View
-            key={pin.number}
+            key={pin.id}
             style={[
               styles.pinMarker,
               {
@@ -69,7 +68,7 @@ const AnalysisScreen = () => {
               },
             ]}
           >
-            <Text style={styles.pinNumber}>{pin.number}</Text>
+            <Text style={styles.pinNumber}>{pin.id}</Text>
           </View>
         ))}
       </View>
@@ -89,8 +88,8 @@ const AnalysisScreen = () => {
           <Text style={styles.infoTitle}>Standing Pins</Text>
           <View style={styles.pinGrid}>
             {standingPins.map(pin => (
-              <View key={pin.number} style={styles.pinBadge}>
-                <Text style={styles.pinBadgeText}>{pin.number}</Text>
+              <View key={pin.id} style={styles.pinBadge}>
+                <Text style={styles.pinBadgeText}>{pin.id}</Text>
               </View>
             ))}
           </View>
@@ -99,10 +98,10 @@ const AnalysisScreen = () => {
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Optimal Move</Text>
           <Text style={styles.optimalMoveText}>
-            Target {optimalMove.pins.length > 1 ? 'pins' : 'pin'}:
+            Target {optimalMove.targetPins.length > 1 ? 'pins' : 'pin'}:
           </Text>
           <View style={styles.pinGrid}>
-            {optimalMove.pins.map(pinNumber => (
+            {optimalMove.targetPins.map(pinNumber => (
               <View key={pinNumber} style={[styles.pinBadge, styles.optimalPinBadge]}>
                 <Text style={styles.pinBadgeText}>{pinNumber}</Text>
               </View>
@@ -115,9 +114,9 @@ const AnalysisScreen = () => {
               <Text style={styles.statValue}>{optimalMove.expectedScore}</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Win Probability</Text>
+              <Text style={styles.statLabel}>Difficulty</Text>
               <Text style={styles.statValue}>
-                {Math.round(optimalMove.winProbability * 100)}%
+                {optimalMove.difficulty.charAt(0).toUpperCase() + optimalMove.difficulty.slice(1)}
               </Text>
             </View>
           </View>
@@ -126,9 +125,9 @@ const AnalysisScreen = () => {
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Strategy Tip</Text>
           <Text style={styles.tipText}>
-            {optimalMove.pins.length === 1 
-              ? `Aim directly at pin ${optimalMove.pins[0]} for the best chance to score ${optimalMove.pins[0]} points.`
-              : `Try to knock down ${optimalMove.pins.length} pins to score ${optimalMove.expectedScore} points. Focus on the area with pins ${optimalMove.pins.join(', ')}.`
+            {optimalMove.targetPins.length === 1 
+              ? `Aim directly at pin ${optimalMove.targetPins[0]} for the best chance to score ${optimalMove.targetPins[0]} points.`
+              : `Try to knock down ${optimalMove.targetPins.length} pins to score ${optimalMove.expectedScore} points. Focus on the area with pins ${optimalMove.targetPins.join(', ')}.`
             }
           </Text>
         </View>
@@ -175,7 +174,7 @@ const AnalysisScreen = () => {
             
             <TouchableOpacity 
               style={[styles.button, styles.secondaryButton]}
-              onPress={() => navigation.navigate('Camera', { gameState })}
+              onPress={() => navigation.navigate('Camera')}
             >
               <Text style={styles.buttonText}>Take New Photo</Text>
             </TouchableOpacity>

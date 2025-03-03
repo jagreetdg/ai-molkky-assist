@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Camera: undefined;
   History: undefined;
   Settings: undefined;
+  Analysis: { imageUri: string };
 };
 
 // Game Types
@@ -54,6 +55,10 @@ export interface GameHistory {
    */
   score: number;
   /**
+   * Total score after this move
+   */
+  totalScore: number;
+  /**
    * When the move was made
    */
   timestamp: number;
@@ -84,6 +89,21 @@ export interface GameState {
    * List of all moves made
    */
   history: GameHistory[];
+}
+
+// Pin detection types
+export interface PinState {
+  id: number;
+  isStanding: boolean;
+  position: { x: number; y: number };
+  confidence: number;
+}
+
+export interface OptimalMove {
+  targetPins: number[];
+  expectedScore: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  aimPosition: { x: number; y: number };
 }
 
 // Settings

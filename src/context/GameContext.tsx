@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { GameState } from '../types';
+import { GameState } from '../types/index';
 import { createNewGame, updatePlayerScore as updateScore } from '../services/gameService';
 
 interface GameContextType {
