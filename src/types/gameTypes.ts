@@ -26,33 +26,6 @@ export interface Player {
   isActive: boolean;
 }
 
-export interface GameHistory {
-  /**
-   * ID of the player who made the move
-   */
-  playerId: string;
-  /**
-   * Name of the player who made the move
-   */
-  playerName: string;
-  /**
-   * Round number when move was made
-   */
-  round: number;
-  /**
-   * Score achieved in this move
-   */
-  score: number;
-  /**
-   * Total score after this move
-   */
-  totalScore: number;
-  /**
-   * When the move was made
-   */
-  timestamp: number;
-}
-
 export interface GameState {
   /**
    * List of all players
@@ -74,8 +47,4 @@ export interface GameState {
    * Winning player if game is over
    */
   winner: Player | null;
-  /**
-   * List of all moves made
-   */
-  history: GameHistory[];
 }

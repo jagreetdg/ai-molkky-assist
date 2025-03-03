@@ -42,20 +42,15 @@ export const calculateOptimalMove = (
   gameState?: GameState
 ): OptimalMove => {
   // Create a default game state if none is provided
-  const defaultGameState: GameState = gameState || {
-    players: [{
-      id: 'player1',
-      name: 'Player 1',
-      score: 25,
-      consecutiveMisses: 0,
-      isEliminated: false,
-      isActive: true
-    }],
+  const defaultGameState: GameState = {
+    players: [
+      { id: '1', name: 'Player 1', score: 0, consecutiveMisses: 0, isEliminated: false, isActive: true },
+      { id: '2', name: 'Player 2', score: 0, consecutiveMisses: 0, isEliminated: false, isActive: false }
+    ],
     currentPlayerIndex: 0,
     round: 1,
     gameOver: false,
-    winner: null,
-    history: []
+    winner: null
   };
 
   // Use the provided game state or the default one

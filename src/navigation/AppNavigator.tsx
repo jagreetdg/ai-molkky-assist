@@ -5,7 +5,6 @@ import { RootStackParamList } from '../types';
 import HomeScreen from '../screens/HomeScreen';
 import GameSetupScreen from '../screens/GameSetupScreen';
 import GamePlayScreen from '../screens/GamePlayScreen';
-import HistoryScreen from '../screens/HistoryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import CameraScreen from '../screens/CameraScreen';
 import AnalysisScreen from '../screens/AnalysisScreen';
@@ -45,6 +44,7 @@ const AppNavigator = () => {
           component={HomeScreen}
           options={{
             title: 'Mölkky Assist AI',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
@@ -73,13 +73,6 @@ const AppNavigator = () => {
           component={AnalysisScreen}
           options={{
             title: 'Move Analysis',
-          }}
-        />
-        <Stack.Screen 
-          name="History" 
-          component={HistoryScreen}
-          options={{
-            title: 'Game History',
           }}
         />
         <Stack.Screen 

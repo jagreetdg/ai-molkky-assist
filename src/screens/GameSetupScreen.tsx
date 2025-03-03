@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -6,6 +6,8 @@ import {
   TouchableOpacity, 
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
+  Alert
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
@@ -23,23 +25,42 @@ const GameSetupScreen = () => {
   const [players, setPlayers] = useState<string[]>(['Player 1', 'Player 2']);
   const [isStartingGame, setIsStartingGame] = useState(false);
 
+  // Handle hardware back button press
+  useEffect(() => {
+    const handleBackPress = () => {
+      // Navigate to Home screen instead of going back in navigation stack
+      navigation.navigate('Home');
+      return true; // Prevent default behavior
+    };
+
+    // Add event listener for hardware back button
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up the event listener on component unmount
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [navigation]);
+
   const handlePlayersChange = (newPlayers: string[]) => {
     setPlayers(newPlayers);
   };
 
   const startGame = () => {
     try {
-      console.log("Starting game with players:", players);
+      console.log("GameSetupScreen: Starting game with players:", players);
       setIsStartingGame(true);
       
       // Initialize the game and get the new state
       const newGameState = initGame(players);
-      console.log("Game initialized successfully, state:", newGameState);
+      console.log("GameSetupScreen: Game initialized successfully, state:", JSON.stringify(newGameState));
       
-      // Navigate to GamePlay with the game state as a parameter
-      navigation.replace('GamePlay', { gameState: newGameState });
+      // Navigate directly to GamePlay using navigate instead of replace
+      // This prevents HomeScreen from mounting and resetting the game
+      console.log("GameSetupScreen: Navigating to GamePlay");
+      navigation.navigate('GamePlay');
     } catch (error) {
-      console.error("Error starting game:", error);
+      console.error("GameSetupScreen: Error starting game:", error);
       setIsStartingGame(false);
     }
   };
