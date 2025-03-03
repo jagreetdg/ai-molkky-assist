@@ -8,9 +8,9 @@ import {
   Alert,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { RootStackParamList, Player } from '../types';
+import { RootStackParamList, Player, GameState } from '../types';
 import { getActivePlayer, getPlayerRanking } from '../services/gameService';
 import { useGame } from '../context/GameContext';
 import { useTheme } from '../context/ThemeContext';
@@ -18,20 +18,35 @@ import ScoreButton from '../components/ScoreButton';
 import PlayerScoreCard from '../components/PlayerScoreCard';
 
 type GamePlayScreenNavigationProp = StackNavigationProp<RootStackParamList, 'GamePlay'>;
+type GamePlayScreenRouteProp = RouteProp<RootStackParamList, 'GamePlay'>;
 
-const GamePlayScreen = () => {
+interface GamePlayScreenProps {
+  route: GamePlayScreenRouteProp;
+}
+
+const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const navigation = useNavigation<GamePlayScreenNavigationProp>();
   const { colors } = useTheme();
-  const { gameState, updatePlayerScore, resetGame } = useGame();
+  const { gameState: contextGameState, updatePlayerScore, resetGame } = useGame();
   const [showScoreButtons, setShowScoreButtons] = useState(true);
+  
+  // Use the game state from route params if available, otherwise use context
+  const gameState = route.params?.gameState || contextGameState;
 
   // Check game state when screen gains focus
   useFocusEffect(
     useCallback(() => {
-      if (!gameState || !gameState.players || gameState.players.length === 0) {
+      console.log("GamePlayScreen: useFocusEffect triggered, gameState from route:", route.params?.gameState);
+      console.log("GamePlayScreen: useFocusEffect triggered, gameState from context:", contextGameState);
+      console.log("GamePlayScreen: useFocusEffect triggered, combined gameState:", gameState);
+      
+      if (!gameState) {
+        console.log("GamePlayScreen: No game state available, navigating back to GameSetup");
         navigation.replace('GameSetup');
+      } else {
+        console.log("GamePlayScreen: Valid game state found:", gameState);
       }
-    }, [gameState, navigation])
+    }, [gameState, route.params?.gameState, contextGameState])
   );
 
   // Handle game over
@@ -40,150 +55,141 @@ const GamePlayScreen = () => {
       Alert.alert(
         'Game Over',
         gameState.winner 
-          ? `${gameState.winner.name} has won!` 
-          : 'Game Over!',
+          ? `${gameState.winner.name} wins with a score of ${gameState.winner.score}!` 
+          : 'Game over!',
         [
-          {
-            text: 'New Game',
+          { 
+            text: 'New Game', 
             onPress: () => {
               resetGame();
               navigation.replace('GameSetup');
-            }
+            } 
           },
           {
-            text: 'Back to Home',
-            onPress: () => {
-              resetGame();
-              navigation.replace('Home');
-            }
+            text: 'View Results',
+            style: 'cancel',
           }
-        ],
-        { cancelable: false }
+        ]
       );
     }
-  }, [gameState?.gameOver, navigation, resetGame]);
+  }, [gameState?.gameOver, gameState?.winner, navigation, resetGame]);
 
-  if (!gameState || !gameState.players || gameState.players.length === 0) {
-    return null;
-  }
-
-  const handleScore = (score: number) => {
+  const handleScoreButtonPress = (score: number) => {
     updatePlayerScore(score);
-    setShowScoreButtons(false);
   };
 
-  const handleNextTurn = () => {
-    setShowScoreButtons(true);
-  };
-
-  const handleEndGame = () => {
-    Alert.alert(
-      'End Game',
-      'Are you sure you want to end the current game?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'End Game',
-          style: 'destructive',
-          onPress: () => {
-            resetGame();
-            navigation.replace('Home');
-          }
-        }
-      ]
-    );
-  };
-
-  const handleTakePhoto = () => {
+  const handleCameraPress = () => {
     navigation.navigate('Camera');
   };
 
-  const activePlayer = getActivePlayer(gameState);
-  const rankedPlayers = getPlayerRanking(gameState.players);
-
-  const renderScoreButtons = () => {
-    const buttons = [];
-    // Add miss button
-    buttons.push(
-      <ScoreButton
-        key="miss"
-        value={0}
-        onPress={() => handleScore(0)}
-        isMiss
-      />
+  if (!gameState || !gameState.players || gameState.players.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.noGameText, { color: colors.text }]}>No active game found.</Text>
+        <TouchableOpacity
+          style={[styles.newGameButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.replace('GameSetup')}
+        >
+          <Text style={styles.newGameButtonText}>Start New Game</Text>
+        </TouchableOpacity>
+      </View>
     );
-    // Add number buttons 1-12
-    for (let i = 1; i <= 12; i++) {
-      buttons.push(
-        <ScoreButton
-          key={i}
-          value={i}
-          onPress={() => handleScore(i)}
-        />
-      );
-    }
-    return buttons;
-  };
+  }
+
+  const activePlayer = getActivePlayer(gameState);
+  const playerRankings = getPlayerRanking(gameState.players);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.endGameButton, { backgroundColor: colors.error }]}
-          onPress={handleEndGame}
-        >
-          <Text style={styles.endGameButtonText}>End Game</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.photoButton, { backgroundColor: colors.primary }]}
-          onPress={handleTakePhoto}
-        >
-          <Ionicons name="camera" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.gameInfo}>
-        <Text style={[styles.roundText, { color: colors.text }]}>
-          Round {gameState.round}
-        </Text>
-        {activePlayer && (
-          <Text style={[styles.playerText, { color: colors.text }]}>
-            Current Player: <Text style={{ color: colors.primary }}>{activePlayer.name}</Text>
-          </Text>
+      {/* Current Player Section */}
+      <View style={styles.currentPlayerSection}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Player</Text>
+        {activePlayer ? (
+          <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.playerName, { color: colors.text }]}>{activePlayer.name}</Text>
+            <Text style={[styles.playerScore, { color: colors.text }]}>Score: {activePlayer.score}</Text>
+            <Text style={[styles.playerInfo, { color: colors.text + '99' }]}>
+              {activePlayer.consecutiveMisses > 0 
+                ? `Consecutive Misses: ${activePlayer.consecutiveMisses}` 
+                : 'No consecutive misses'}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.noActivePlayer, { color: colors.text }]}>No active player</Text>
         )}
       </View>
 
-      <View style={styles.playersContainer}>
-        <FlatList
-          data={rankedPlayers}
-          keyExtractor={(player) => player.id}
-          renderItem={({ item: player }) => (
-            <PlayerScoreCard
-              player={player}
-              isActive={player.id === activePlayer?.id}
-            />
-          )}
-        />
+      {/* Score Buttons or Camera Button */}
+      <View style={styles.actionSection}>
+        {showScoreButtons ? (
+          <>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Enter Score</Text>
+            <View style={styles.scoreButtonsContainer}>
+              <View style={styles.scoreButtonsRow}>
+                <ScoreButton value={0} onPress={() => handleScoreButtonPress(0)} color={colors.error} />
+                <ScoreButton value={1} onPress={() => handleScoreButtonPress(1)} color={colors.primary} />
+                <ScoreButton value={2} onPress={() => handleScoreButtonPress(2)} color={colors.primary} />
+                <ScoreButton value={3} onPress={() => handleScoreButtonPress(3)} color={colors.primary} />
+              </View>
+              <View style={styles.scoreButtonsRow}>
+                <ScoreButton value={4} onPress={() => handleScoreButtonPress(4)} color={colors.primary} />
+                <ScoreButton value={5} onPress={() => handleScoreButtonPress(5)} color={colors.primary} />
+                <ScoreButton value={6} onPress={() => handleScoreButtonPress(6)} color={colors.primary} />
+                <ScoreButton value={7} onPress={() => handleScoreButtonPress(7)} color={colors.primary} />
+              </View>
+              <View style={styles.scoreButtonsRow}>
+                <ScoreButton value={8} onPress={() => handleScoreButtonPress(8)} color={colors.primary} />
+                <ScoreButton value={9} onPress={() => handleScoreButtonPress(9)} color={colors.primary} />
+                <ScoreButton value={10} onPress={() => handleScoreButtonPress(10)} color={colors.primary} />
+                <ScoreButton value={12} onPress={() => handleScoreButtonPress(12)} color={colors.success} />
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.cameraButton, { backgroundColor: colors.primary }]}
+              onPress={() => setShowScoreButtons(false)}
+            >
+              <Ionicons name="camera-outline" size={24} color="white" />
+              <Text style={styles.cameraButtonText}>Use Camera</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.cameraButton, { backgroundColor: colors.primary }]}
+              onPress={handleCameraPress}
+            >
+              <Ionicons name="camera-outline" size={24} color="white" />
+              <Text style={styles.cameraButtonText}>Open Camera</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cameraButton, { backgroundColor: colors.primary, marginTop: 10 }]}
+              onPress={() => setShowScoreButtons(true)}
+            >
+              <Ionicons name="keypad-outline" size={24} color="white" />
+              <Text style={styles.cameraButtonText}>Manual Entry</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
-      {showScoreButtons ? (
-        <View style={styles.scoreButtonsContainer}>
-          <View style={styles.scoreButtonsGrid}>
-            {renderScoreButtons()}
-          </View>
-        </View>
-      ) : (
-        <TouchableOpacity
-          style={[styles.nextButton, { backgroundColor: colors.success }]}
-          onPress={handleNextTurn}
-        >
-          <Text style={styles.nextButtonText}>Next Turn</Text>
-        </TouchableOpacity>
-      )}
+      {/* Player Rankings */}
+      <View style={styles.rankingsSection}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Player Rankings</Text>
+        <FlatList
+          data={playerRankings}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => (
+            <PlayerScoreCard
+              player={item}
+              rank={index + 1}
+              isActive={item.isActive}
+              isEliminated={item.isEliminated}
+              colors={colors}
+            />
+          )}
+          style={styles.rankingsList}
+        />
+      </View>
     </View>
   );
 };
@@ -193,62 +199,89 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  currentPlayerSection: {
+    marginBottom: 20,
   },
-  endGameButton: {
-    padding: 10,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 8,
-  },
-  endGameButtonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  photoButton: {
-    padding: 10,
-    borderRadius: 8,
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gameInfo: {
-    marginBottom: 16,
-  },
-  roundText: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 10,
   },
-  playerText: {
+  activePlayerCard: {
+    padding: 15,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  playerName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  playerScore: {
+    fontSize: 18,
+    marginTop: 5,
+  },
+  playerInfo: {
+    fontSize: 14,
+    marginTop: 5,
+  },
+  noActivePlayer: {
     fontSize: 16,
-    marginTop: 4,
+    fontStyle: 'italic',
   },
-  playersContainer: {
-    flex: 1,
-    marginBottom: 16,
+  actionSection: {
+    marginBottom: 20,
   },
   scoreButtonsContainer: {
-    padding: 8,
+    marginBottom: 15,
   },
-  scoreButtonsGrid: {
+  scoreButtonsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 8,
+    marginBottom: 10,
   },
-  nextButton: {
-    padding: 16,
-    borderRadius: 8,
+  cameraButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
-  nextButtonText: {
+  cameraButtonText: {
     color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  rankingsSection: {
+    flex: 1,
+  },
+  rankingsList: {
+    flex: 1,
+  },
+  noGameText: {
     fontSize: 18,
+    textAlign: 'center',
+    marginTop: 50,
+    marginBottom: 20,
+  },
+  newGameButton: {
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 50,
+  },
+  newGameButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

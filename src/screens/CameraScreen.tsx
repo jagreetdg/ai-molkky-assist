@@ -7,8 +7,7 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
-// @ts-ignore
-import { Camera } from 'expo-camera';
+import { Camera, CameraType, FlashMode } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -19,22 +18,17 @@ import { initTensorFlow } from '../services/imageAnalysisService';
 type CameraScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Camera'>;
 type CameraScreenRouteProp = RouteProp<RootStackParamList, 'Camera'>;
 
-// Define camera types manually to avoid TypeScript issues
-const CameraType = {
-  back: 'back',
-  front: 'front'
-};
-
 const CameraScreen = () => {
   const navigation = useNavigation<CameraScreenNavigationProp>();
   const route = useRoute<CameraScreenRouteProp>();
   
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [flash, setFlash] = useState(false);
   const [type, setType] = useState(CameraType.back);
-  const [flash, setFlash] = useState(false); 
   const [isLoading, setIsLoading] = useState(true);
+  const [isCapturing, setIsCapturing] = useState(false);
   
-  const cameraRef = useRef(null);
+  const cameraRef = useRef<Camera | null>(null);
   
   useEffect(() => {
     (async () => {
@@ -44,7 +38,6 @@ const CameraScreen = () => {
         console.error('Failed to initialize TensorFlow.js:', error);
       }
       
-      // @ts-ignore
       const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
       const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
       
@@ -57,10 +50,10 @@ const CameraScreen = () => {
   }, []);
   
   const takePicture = async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || isCapturing) return;
     
     try {
-      // @ts-ignore
+      setIsCapturing(true);
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
@@ -75,15 +68,13 @@ const CameraScreen = () => {
     } catch (error) {
       console.error('Error taking picture:', error);
       Alert.alert('Error', 'Failed to take picture. Please try again.');
+    } finally {
+      setIsCapturing(false);
     }
   };
   
   const toggleCameraType = () => {
-    setType(current => (
-      current === CameraType.back 
-        ? CameraType.front 
-        : CameraType.back
-    ));
+    setType(type === CameraType.back ? CameraType.front : CameraType.back);
   };
   
   const toggleFlash = () => {
@@ -122,12 +113,11 @@ const CameraScreen = () => {
   
   return (
     <View style={styles.container}>
-      {/* @ts-ignore */}
       <Camera
         ref={cameraRef}
         style={styles.camera}
         type={type}
-        flashMode={flash ? 'on' : 'off'}
+        flashMode={flash ? FlashMode.on : FlashMode.off}
       >
         <View style={styles.overlay}>
           <View style={styles.guideContainer}>
@@ -142,17 +132,33 @@ const CameraScreen = () => {
               onPress={toggleFlash}
             >
               <Ionicons 
-                name={flash ? "flash-outline" : "flash-off-outline"} 
+                name={flash ? "flash" : "flash-off"} 
                 size={24} 
                 color="white" 
               />
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.captureButton} 
+              onPress={takePicture}
+              disabled={isCapturing}
+            >
+              {isCapturing ? (
+                <ActivityIndicator size="large" color="white" />
+              ) : (
+                <View style={styles.captureButtonInner} />
+              )}
             </TouchableOpacity>
             
             <TouchableOpacity
               style={styles.controlButton}
               onPress={toggleCameraType}
             >
-              <Ionicons name="camera-reverse" size={24} color="white" />
+              <Ionicons 
+                name="camera-reverse-outline" 
+                size={24} 
+                color="white" 
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -165,13 +171,6 @@ const CameraScreen = () => {
         >
           <Ionicons name="arrow-back" size={24} color="black" />
           <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.captureButton}
-          onPress={takePicture}
-        >
-          <View style={styles.captureButtonInner} />
         </TouchableOpacity>
         
         <View style={styles.spacer} />

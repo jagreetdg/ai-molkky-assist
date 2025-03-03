@@ -1,9 +1,3 @@
-// Navigation
-// Re-export all types from their respective files
-export * from './gameTypes';
-export * from './uiTypes';
-export * from './navigationTypes';
-
 // Pin detection types
 export interface PinState {
   number: number;

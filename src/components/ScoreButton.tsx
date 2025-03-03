@@ -7,26 +7,30 @@ interface ScoreButtonProps {
   onPress: () => void;
   isMiss?: boolean;
   disabled?: boolean;
+  color?: string;
 }
 
 const ScoreButton: React.FC<ScoreButtonProps> = ({ 
   value, 
   onPress, 
   isMiss = false,
-  disabled = false 
+  disabled = false,
+  color
 }) => {
   const { colors } = useTheme();
   
-  const backgroundColor = isMiss 
-    ? colors.error 
-    : colors.primary;
+  const backgroundColor = color 
+    ? color 
+    : isMiss 
+      ? colors.error 
+      : colors.primary;
   
   return (
     <TouchableOpacity
       style={[
         styles.button,
         { backgroundColor },
-        disabled && styles.disabledButton
+        disabled && { opacity: 0.5 }
       ]}
       onPress={onPress}
       disabled={disabled}
@@ -50,9 +54,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
-  },
-  disabledButton: {
-    opacity: 0.5,
   },
   buttonText: {
     color: 'white',

@@ -58,7 +58,7 @@ const AnalysisScreen = () => {
       <View style={styles.pinOverlayContainer}>
         {pinStates.map((pin) => (
           <View
-            key={pin.id}
+            key={pin.number}
             style={[
               styles.pinMarker,
               {
@@ -68,7 +68,7 @@ const AnalysisScreen = () => {
               },
             ]}
           >
-            <Text style={styles.pinNumber}>{pin.id}</Text>
+            <Text style={styles.pinNumber}>{pin.number}</Text>
           </View>
         ))}
       </View>
@@ -88,8 +88,8 @@ const AnalysisScreen = () => {
           <Text style={styles.infoTitle}>Standing Pins</Text>
           <View style={styles.pinGrid}>
             {standingPins.map(pin => (
-              <View key={pin.id} style={styles.pinBadge}>
-                <Text style={styles.pinBadgeText}>{pin.id}</Text>
+              <View key={pin.number} style={styles.pinBadge}>
+                <Text style={styles.pinBadgeText}>{pin.number}</Text>
               </View>
             ))}
           </View>
@@ -114,9 +114,9 @@ const AnalysisScreen = () => {
               <Text style={styles.statValue}>{optimalMove.expectedScore}</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Difficulty</Text>
+              <Text style={styles.statLabel}>Win Probability</Text>
               <Text style={styles.statValue}>
-                {optimalMove.difficulty.charAt(0).toUpperCase() + optimalMove.difficulty.slice(1)}
+                {Math.round(optimalMove.winProbability * 100)}%
               </Text>
             </View>
           </View>

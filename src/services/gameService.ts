@@ -1,4 +1,4 @@
-import { GameState, Player, GameHistory } from '../types/index';
+import { GameState, Player, GameHistory } from '../types';
 
 export const createNewGame = (playerNames: string[]): GameState => {
   const players = playerNames.map((name, index) => {

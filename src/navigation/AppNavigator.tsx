@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigationState } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
 import HomeScreen from '../screens/HomeScreen';
@@ -16,9 +16,17 @@ const Stack = createStackNavigator<RootStackParamList>();
 const AppNavigator = () => {
   const { colors, isDarkMode } = useTheme();
 
+  const handleNavigationStateChange = (state: NavigationState | undefined) => {
+    if (state) {
+      const currentRouteName = state.routes[state.index].name;
+      console.log("Navigation: Current route changed to:", currentRouteName);
+    }
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer onStateChange={handleNavigationStateChange}>
       <Stack.Navigator
+        initialRouteName="Home"
         screenOptions={{
           headerStyle: {
             backgroundColor: colors.card,

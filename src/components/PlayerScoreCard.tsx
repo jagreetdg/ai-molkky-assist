@@ -5,12 +5,21 @@ import { useTheme } from '../context/ThemeContext';
 
 interface PlayerScoreCardProps {
   player: Player;
-  isActive: boolean;
+  isActive?: boolean;
+  isEliminated?: boolean;
+  rank?: number;
+  colors?: any;
 }
 
-const PlayerScoreCard: React.FC<PlayerScoreCardProps> = ({ player, isActive }) => {
-  const { colors } = useTheme();
-  const isEliminated = player.score === -1;
+const PlayerScoreCard: React.FC<PlayerScoreCardProps> = ({ 
+  player, 
+  isActive = false,
+  isEliminated = player.score === -1,
+  rank,
+  colors: propColors
+}) => {
+  const themeContext = useTheme();
+  const colors = propColors || themeContext.colors;
   
   return (
     <View style={[
@@ -22,6 +31,11 @@ const PlayerScoreCard: React.FC<PlayerScoreCardProps> = ({ player, isActive }) =
       isActive && styles.activeContainer,
       isEliminated && { opacity: 0.7 }
     ]}>
+      {rank && (
+        <View style={[styles.rankBadge, { backgroundColor: colors.primary }]}>
+          <Text style={styles.rankText}>{rank}</Text>
+        </View>
+      )}
       <View style={styles.playerInfo}>
         <Text style={[
           styles.playerName,
@@ -31,21 +45,22 @@ const PlayerScoreCard: React.FC<PlayerScoreCardProps> = ({ player, isActive }) =
         ]}>
           {player.name}
         </Text>
-        
-        {player.consecutiveMisses && player.consecutiveMisses > 0 ? (
-          <Text style={[styles.missesText, { color: colors.warning }]}>
-            Misses: {player.consecutiveMisses}/3
+        <View style={styles.scoreContainer}>
+          <Text style={[
+            styles.score, 
+            { 
+              color: isEliminated ? colors.error : colors.text 
+            }
+          ]}>
+            {isEliminated ? 'X' : player.score}
           </Text>
-        ) : null}
+          {!isEliminated && player.consecutiveMisses > 0 && (
+            <Text style={[styles.missText, { color: colors.error }]}>
+              Misses: {player.consecutiveMisses}/3
+            </Text>
+          )}
+        </View>
       </View>
-      
-      <Text style={[
-        styles.scoreText,
-        { color: isActive ? colors.primary : colors.text },
-        isEliminated && styles.eliminatedText
-      ]}>
-        {isEliminated ? 'X' : player.score}
-      </Text>
     </View>
   );
 };
@@ -70,16 +85,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  scoreText: {
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  score: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  missText: {
+    fontSize: 14,
+    marginLeft: 8,
   },
   eliminatedText: {
     textDecorationLine: 'line-through',
   },
-  missesText: {
-    fontSize: 12,
-    marginTop: 4,
+  rankBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  rankText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });
 
