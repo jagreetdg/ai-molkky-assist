@@ -23,10 +23,6 @@ const HomeScreen = () => {
     navigation.navigate('GameSetup');
   }, [navigation]);
 
-  const handleHistory = useCallback(() => {
-    navigation.navigate('History');
-  }, [navigation]);
-
   const handleSettings = useCallback(() => {
     navigation.navigate('Settings');
   }, [navigation]);
@@ -54,14 +50,6 @@ const HomeScreen = () => {
           accessibilityLabel="Start a new game"
         >
           <Text style={styles.buttonText}>New Game</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.button, { backgroundColor: colors.success }]} 
-          onPress={handleHistory}
-          accessibilityLabel="View game history"
-        >
-          <Text style={styles.buttonText}>Game History</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 

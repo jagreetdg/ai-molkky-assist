@@ -6,7 +6,6 @@ export type RootStackParamList = {
   GameSetup: undefined;
   GamePlay: { gameState: GameState };
   Camera: undefined;
-  History: undefined;
   Settings: undefined;
   Analysis: { imageUri: string };
   [key: string]: object | undefined;

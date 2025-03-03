@@ -6,6 +6,8 @@ import {
   TouchableOpacity, 
   FlatList,
   Alert,
+  Modal,
+  Animated,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
@@ -32,6 +34,15 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const [showScoreButtons, setShowScoreButtons] = useState(true);
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
   const [localGameState, setLocalGameState] = useState<GameState | null>(null);
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoreUpdateInfo, setScoreUpdateInfo] = useState<{
+    playerName: string;
+    previousScore: number;
+    newScore: number;
+    scoreAdded: number;
+    consecutiveMisses: number;
+  } | null>(null);
+  const fadeAnim = useState(new Animated.Value(0))[0];
   
   // Use the game state from route params if available, otherwise use context
   const gameState = localGameState || route.params?.gameState || contextGameState;
@@ -39,6 +50,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   // Update local game state when context game state changes
   useEffect(() => {
     if (contextGameState) {
+      console.log("Updating local game state with context game state:", contextGameState);
       setLocalGameState(contextGameState);
     }
   }, [contextGameState]);
@@ -100,15 +112,72 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
     const score = selectedPin !== null ? selectedPin : 0;
     console.log("Submitting score:", score);
     
+    // Get the active player before updating
+    const activePlayer = getActivePlayer(gameState);
+    if (!activePlayer) return;
+    
+    const previousScore = activePlayer.score;
+    
+    // Calculate what the new score will be (following the same logic as in gameService)
+    let newScore = previousScore;
+    if (score > 0) {
+      newScore = previousScore + score > 50 ? 25 : previousScore + score;
+    }
+    
+    // Calculate new consecutive misses
+    const newConsecutiveMisses = score === 0 ? activePlayer.consecutiveMisses + 1 : 0;
+    
+    // Set the score update info for the modal
+    setScoreUpdateInfo({
+      playerName: activePlayer.name,
+      previousScore,
+      newScore,
+      scoreAdded: score,
+      consecutiveMisses: newConsecutiveMisses
+    });
+    
+    // Show the modal
+    setShowScoreModal(true);
+    
+    // Animate the fade in
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true
+    }).start();
+    
     // Update the player's score
     updatePlayerScore(score);
     
     // Reset selected pin after scoring
     setSelectedPin(null);
+    
+    // Log the updated game state to debug
+    console.log("After score update - gameState:", gameState);
+    console.log("After score update - contextGameState:", contextGameState);
+    
+    // Force update the local game state after a short delay to ensure the context has updated
+    setTimeout(() => {
+      if (contextGameState) {
+        console.log("Forced update of local game state:", contextGameState);
+        setLocalGameState(contextGameState);
+      }
+    }, 100);
   };
 
   const handleUndoPress = () => {
     undoLastMove();
+  };
+
+  const handleCloseScoreModal = () => {
+    // Animate the fade out
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setShowScoreModal(false);
+    });
   };
 
   const handleResetPress = () => {
@@ -319,6 +388,102 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
           contentContainerStyle={styles.rankingsListContent}
         />
       </View>
+
+      {/* Score Update Modal */}
+      <Modal
+        visible={showScoreModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.scoreUpdateModalContainer}>
+          <Animated.View style={[styles.scoreUpdateModal, { opacity: fadeAnim, backgroundColor: colors.card }]}>
+            <View style={styles.scoreUpdateModalHeader}>
+              <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Score Update</Text>
+              <TouchableOpacity
+                style={styles.scoreUpdateModalCloseButton}
+                onPress={handleCloseScoreModal}
+              >
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.scoreUpdateModalContent}>
+              {scoreUpdateInfo && (
+                <>
+                  <View style={styles.playerInfoRow}>
+                    <Ionicons name="person" size={24} color={colors.primary} />
+                    <Text style={[styles.playerInfoText, { color: colors.text }]}>
+                      {scoreUpdateInfo.playerName}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.scoreChangeContainer}>
+                    <View style={styles.scoreBox}>
+                      <Text style={[styles.scoreLabel, { color: colors.text }]}>Previous</Text>
+                      <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.previousScore}</Text>
+                    </View>
+                    
+                    <View style={styles.scoreArrow}>
+                      <Ionicons 
+                        name="arrow-forward" 
+                        size={24} 
+                        color={scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning} 
+                      />
+                    </View>
+                    
+                    <View style={styles.scoreBox}>
+                      <Text style={[styles.scoreLabel, { color: colors.text }]}>New</Text>
+                      <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.newScore}</Text>
+                    </View>
+                  </View>
+                  
+                  <View style={[styles.scoreAddedContainer, { 
+                    backgroundColor: scoreUpdateInfo.scoreAdded > 0 
+                      ? 'rgba(75, 181, 67, 0.1)' 
+                      : 'rgba(255, 193, 7, 0.1)' 
+                  }]}>
+                    <Ionicons 
+                      name={scoreUpdateInfo.scoreAdded > 0 ? "add-circle" : "remove-circle"} 
+                      size={24} 
+                      color={scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning} 
+                    />
+                    <Text style={[styles.scoreAddedText, { 
+                      color: scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning 
+                    }]}>
+                      {scoreUpdateInfo.scoreAdded > 0 
+                        ? `Added ${scoreUpdateInfo.scoreAdded} points` 
+                        : 'Missed shot'}
+                    </Text>
+                  </View>
+                  
+                  {scoreUpdateInfo.consecutiveMisses > 0 && (
+                    <View style={styles.missesContainer}>
+                      <MissIndicator 
+                        consecutiveMisses={scoreUpdateInfo.consecutiveMisses} 
+                        size="small" 
+                        colors={colors}
+                      />
+                      <Text style={[styles.missesText, { color: colors.text }]}>
+                        {scoreUpdateInfo.consecutiveMisses === 1 
+                          ? '1 consecutive miss' 
+                          : `${scoreUpdateInfo.consecutiveMisses} consecutive misses`}
+                        {scoreUpdateInfo.consecutiveMisses >= 3 && ' - Eliminated!'}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.closeModalButton, { backgroundColor: colors.primary }]}
+              onPress={handleCloseScoreModal}
+            >
+              <Text style={styles.closeModalButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -473,6 +638,108 @@ const styles = StyleSheet.create({
   noActivePlayer: {
     fontSize: 16,
     fontStyle: 'italic',
+  },
+  scoreUpdateModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  scoreUpdateModal: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    width: '80%',
+  },
+  scoreUpdateModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  scoreUpdateModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  scoreUpdateModalCloseButton: {
+    padding: 8,
+  },
+  scoreUpdateModalContent: {
+    marginBottom: 16,
+  },
+  scoreUpdateModalText: {
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  playerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  playerInfoText: {
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  scoreChangeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  scoreBox: {
+    padding: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    width: '30%',
+    alignItems: 'center',
+  },
+  scoreLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  scoreValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  scoreArrow: {
+    width: '30%',
+    alignItems: 'center',
+  },
+  scoreAddedContainer: {
+    padding: 8,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  scoreAddedText: {
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  missesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  missesText: {
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  closeModalButton: {
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  closeModalButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

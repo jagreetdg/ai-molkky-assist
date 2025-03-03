@@ -1,4 +1,4 @@
-import { GameState, Player, GameHistory } from '../types';
+import { GameState, Player } from '../types';
 
 export const createNewGame = (playerNames: string[]): GameState => {
   const players = playerNames.map((name, index) => {
@@ -19,7 +19,6 @@ export const createNewGame = (playerNames: string[]): GameState => {
     round: 1,
     gameOver: false,
     winner: null,
-    history: [],
   };
   return gameState;
 };
@@ -96,23 +95,12 @@ export const updatePlayerScore = (gameState: GameState, score: number): GameStat
   // Update round if we've gone through all players
   const newRound = nextPlayerIndex <= currentPlayerIndex ? round + 1 : round;
 
-  // Create history entry
-  const historyEntry: GameHistory = {
-    playerId: currentPlayer.id,
-    playerName: currentPlayer.name,
-    round,
-    score,
-    totalScore: score === 0 ? currentPlayer.score : (currentPlayer.score + score > 50 ? 25 : currentPlayer.score + score),
-    timestamp: Date.now(),
-  };
-
   const newGameState: GameState = {
     players: updatedPlayers,
     currentPlayerIndex: nextPlayerIndex,
     round: newRound,
     gameOver,
     winner: winner || (activePlayers.length === 1 ? activePlayers[0] : null),
-    history: gameState.history.concat([historyEntry]),
   };
   return newGameState;
 };
@@ -123,9 +111,6 @@ export const getActivePlayer = (gameState: GameState): Player | null => {
 };
 
 export const getPlayerRanking = (players: Player[]): Player[] => {
-  return players.slice().sort((a, b) => {
-    if (a.isEliminated && !b.isEliminated) return 1;
-    if (!a.isEliminated && b.isEliminated) return -1;
-    return b.score - a.score;
-  });
+  // Sort players by score (highest first)
+  return [...players].sort((a, b) => b.score - a.score);
 };

@@ -74,7 +74,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <GameContext.Provider
       value={{
-        gameState: globalGameState,
+        gameState,
         initGame,
         updatePlayerScore,
         resetGame,
