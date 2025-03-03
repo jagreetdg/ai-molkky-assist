@@ -29,9 +29,18 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const { colors } = useTheme();
   const { gameState: contextGameState, updatePlayerScore, resetGame } = useGame();
   const [showScoreButtons, setShowScoreButtons] = useState(true);
+  const [selectedPin, setSelectedPin] = useState<number | null>(null);
+  const [localGameState, setLocalGameState] = useState<GameState | null>(null);
   
   // Use the game state from route params if available, otherwise use context
-  const gameState = route.params?.gameState || contextGameState;
+  const gameState = localGameState || route.params?.gameState || contextGameState;
+
+  // Update local game state when context game state changes
+  useEffect(() => {
+    if (contextGameState) {
+      setLocalGameState(contextGameState);
+    }
+  }, [contextGameState]);
 
   // Check game state when screen gains focus
   useFocusEffect(
@@ -45,8 +54,9 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
         navigation.replace('GameSetup');
       } else {
         console.log("GamePlayScreen: Valid game state found:", gameState);
+        setLocalGameState(gameState);
       }
-    }, [gameState, route.params?.gameState, contextGameState])
+    }, [gameState, route.params?.gameState, contextGameState, navigation])
   );
 
   // Handle game over
@@ -74,8 +84,26 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
     }
   }, [gameState?.gameOver, gameState?.winner, navigation, resetGame]);
 
-  const handleScoreButtonPress = (score: number) => {
+  const handlePinSelection = (pin: number) => {
+    // If the pin is already selected, deselect it
+    if (selectedPin === pin) {
+      setSelectedPin(null);
+    } else {
+      // Otherwise, select the new pin
+      setSelectedPin(pin);
+    }
+  };
+
+  const handleScoreSubmit = () => {
+    // If no pin is selected, score is 0
+    const score = selectedPin !== null ? selectedPin : 0;
+    console.log("Submitting score:", score);
+    
+    // Update the player's score
     updatePlayerScore(score);
+    
+    // Reset selected pin after scoring
+    setSelectedPin(null);
   };
 
   const handleCameraPress = () => {
@@ -98,6 +126,12 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
 
   const activePlayer = getActivePlayer(gameState);
   const playerRankings = getPlayerRanking(gameState.players);
+
+  // Define the pins in a triangle layout (Mölkky style)
+  const firstRowPins = [1, 2];
+  const secondRowPins = [3, 4, 5];
+  const thirdRowPins = [6, 7, 8, 9];
+  const fourthRowPins = [10, 11, 12];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -123,27 +157,67 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
       <View style={styles.actionSection}>
         {showScoreButtons ? (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Enter Score</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Pin</Text>
             <View style={styles.scoreButtonsContainer}>
+              {/* First row */}
               <View style={styles.scoreButtonsRow}>
-                <ScoreButton value={0} onPress={() => handleScoreButtonPress(0)} color={colors.primary} />
-                <ScoreButton value={1} onPress={() => handleScoreButtonPress(1)} color={colors.primary} />
-                <ScoreButton value={2} onPress={() => handleScoreButtonPress(2)} color={colors.primary} />
-                <ScoreButton value={3} onPress={() => handleScoreButtonPress(3)} color={colors.primary} />
+                {firstRowPins.map(pin => (
+                  <ScoreButton 
+                    key={pin}
+                    value={pin} 
+                    onPress={() => handlePinSelection(pin)} 
+                    color={selectedPin === pin ? colors.accent : colors.primary} 
+                  />
+                ))}
               </View>
+              
+              {/* Second row */}
               <View style={styles.scoreButtonsRow}>
-                <ScoreButton value={4} onPress={() => handleScoreButtonPress(4)} color={colors.primary} />
-                <ScoreButton value={5} onPress={() => handleScoreButtonPress(5)} color={colors.primary} />
-                <ScoreButton value={6} onPress={() => handleScoreButtonPress(6)} color={colors.primary} />
-                <ScoreButton value={7} onPress={() => handleScoreButtonPress(7)} color={colors.primary} />
+                {secondRowPins.map(pin => (
+                  <ScoreButton 
+                    key={pin}
+                    value={pin} 
+                    onPress={() => handlePinSelection(pin)} 
+                    color={selectedPin === pin ? colors.accent : colors.primary} 
+                  />
+                ))}
               </View>
+              
+              {/* Third row */}
               <View style={styles.scoreButtonsRow}>
-                <ScoreButton value={8} onPress={() => handleScoreButtonPress(8)} color={colors.primary} />
-                <ScoreButton value={9} onPress={() => handleScoreButtonPress(9)} color={colors.primary} />
-                <ScoreButton value={10} onPress={() => handleScoreButtonPress(10)} color={colors.primary} />
-                <ScoreButton value={12} onPress={() => handleScoreButtonPress(12)} color={colors.primary} />
+                {thirdRowPins.map(pin => (
+                  <ScoreButton 
+                    key={pin}
+                    value={pin} 
+                    onPress={() => handlePinSelection(pin)} 
+                    color={selectedPin === pin ? colors.accent : colors.primary} 
+                  />
+                ))}
+              </View>
+              
+              {/* Fourth row */}
+              <View style={styles.scoreButtonsRow}>
+                {fourthRowPins.map(pin => (
+                  <ScoreButton 
+                    key={pin}
+                    value={pin} 
+                    onPress={() => handlePinSelection(pin)} 
+                    color={selectedPin === pin ? colors.accent : colors.primary} 
+                  />
+                ))}
               </View>
             </View>
+            
+            {/* Score Submit Button */}
+            <TouchableOpacity
+              style={[styles.scoreSubmitButton, { backgroundColor: colors.accent }]}
+              onPress={handleScoreSubmit}
+            >
+              <Text style={styles.scoreSubmitButtonText}>
+                Score {selectedPin !== null ? selectedPin : '0'}
+              </Text>
+            </TouchableOpacity>
+            
             <TouchableOpacity
               style={[styles.cameraButton, { backgroundColor: colors.primary }]}
               onPress={() => setShowScoreButtons(false)}
@@ -200,66 +274,83 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   currentPlayerSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   activePlayerCard: {
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 8,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowRadius: 1.5,
   },
   playerName: {
     fontSize: 20,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
   playerScore: {
     fontSize: 18,
-    marginTop: 5,
+    marginBottom: 4,
   },
   playerInfo: {
     fontSize: 14,
-    marginTop: 5,
   },
   noActivePlayer: {
     fontSize: 16,
     fontStyle: 'italic',
   },
   actionSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   scoreButtonsContainer: {
-    marginBottom: 15,
+    marginBottom: 16,
   },
   scoreButtonsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  scoreSubmitButton: {
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  scoreSubmitButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   cameraButton: {
     flexDirection: 'row',
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
-    borderRadius: 10,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowRadius: 1.5,
   },
   cameraButtonText: {
     color: 'white',
+    marginLeft: 8,
     fontSize: 16,
     fontWeight: 'bold',
-    marginLeft: 8,
   },
   rankingsSection: {
     flex: 1,
@@ -270,14 +361,13 @@ const styles = StyleSheet.create({
   noGameText: {
     fontSize: 18,
     textAlign: 'center',
-    marginTop: 50,
     marginBottom: 20,
   },
   newGameButton: {
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
-    marginHorizontal: 50,
+    justifyContent: 'center',
   },
   newGameButtonText: {
     color: 'white',
