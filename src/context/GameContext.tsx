@@ -40,16 +40,20 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updatePlayerScore = (score: number) => {
-    if (!globalGameState) return;
+    if (!globalGameState) {
+      console.error("Cannot update score: no active game");
+      return;
+    }
     
     // Save current state to history before updating
     gameStateHistory.push({...globalGameState});
     
+    // Create updated state
     const updatedState = updateScore(globalGameState, score);
     
-    // Update both the global variable and the state
+    // Update both the global variable and the React state
     globalGameState = updatedState;
-    setGameState(updatedState);
+    setGameState({...updatedState}); // Use spread to ensure a new object reference
   };
 
   const undoLastMove = () => {

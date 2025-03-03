@@ -44,13 +44,12 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   } | null>(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
   
-  // Use the game state from route params if available, otherwise use context
-  const gameState = localGameState || route.params?.gameState || contextGameState;
+  // Use the game state from context or route params
+  const gameState = contextGameState || route.params?.gameState;
 
-  // Update local game state when context game state changes
+  // Sync local state with context when it changes
   useEffect(() => {
     if (contextGameState) {
-      console.log("Updating local game state with context game state:", contextGameState);
       setLocalGameState(contextGameState);
     }
   }, [contextGameState]);
@@ -110,11 +109,13 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const handleScoreSubmit = () => {
     // If no pin is selected, score is 0
     const score = selectedPin !== null ? selectedPin : 0;
-    console.log("Submitting score:", score);
     
     // Get the active player before updating
     const activePlayer = getActivePlayer(gameState);
-    if (!activePlayer) return;
+    if (!activePlayer) {
+      console.error("No active player found! Cannot update score.");
+      return;
+    }
     
     const previousScore = activePlayer.score;
     
@@ -146,23 +147,11 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
       useNativeDriver: true
     }).start();
     
-    // Update the player's score
+    // Update the player's score through context
     updatePlayerScore(score);
     
     // Reset selected pin after scoring
     setSelectedPin(null);
-    
-    // Log the updated game state to debug
-    console.log("After score update - gameState:", gameState);
-    console.log("After score update - contextGameState:", contextGameState);
-    
-    // Force update the local game state after a short delay to ensure the context has updated
-    setTimeout(() => {
-      if (contextGameState) {
-        console.log("Forced update of local game state:", contextGameState);
-        setLocalGameState(contextGameState);
-      }
-    }, 100);
   };
 
   const handleUndoPress = () => {

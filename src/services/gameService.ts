@@ -102,6 +102,7 @@ export const updatePlayerScore = (gameState: GameState, score: number): GameStat
     gameOver,
     winner: winner || (activePlayers.length === 1 ? activePlayers[0] : null),
   };
+  
   return newGameState;
 };
 
