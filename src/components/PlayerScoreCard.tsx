@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { Player } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import MissIndicator from './MissIndicator';
 
 interface PlayerScoreCardProps {
   player: Player;
@@ -45,21 +46,23 @@ const PlayerScoreCard: React.FC<PlayerScoreCardProps> = ({
         ]}>
           {player.name}
         </Text>
-        <View style={styles.scoreContainer}>
-          <Text style={[
-            styles.score, 
-            { 
-              color: isEliminated ? colors.error : colors.text 
-            }
-          ]}>
-            {isEliminated ? 'X' : player.score}
-          </Text>
-          {!isEliminated && player.consecutiveMisses > 0 && (
-            <Text style={[styles.missText, { color: colors.error }]}>
-              Misses: {player.consecutiveMisses}/3
-            </Text>
-          )}
-        </View>
+      </View>
+      
+      {/* Score and Miss Indicator */}
+      <View style={styles.scoreAndMissContainer}>
+        <Text style={[
+          styles.score, 
+          { 
+            color: isEliminated ? colors.error : colors.text 
+          }
+        ]}>
+          {isEliminated ? 'X' : player.score}
+        </Text>
+        <MissIndicator 
+          consecutiveMisses={player.consecutiveMisses} 
+          size="small" 
+          colors={colors}
+        />
       </View>
     </View>
   );
@@ -70,7 +73,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    padding: 12,
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
@@ -85,33 +88,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  scoreContainer: {
+  scoreAndMissContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   score: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
-  },
-  missText: {
-    fontSize: 14,
-    marginLeft: 8,
+    marginRight: 8,
   },
   eliminatedText: {
     textDecorationLine: 'line-through',
   },
   rankBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   rankText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
   }
 });
 

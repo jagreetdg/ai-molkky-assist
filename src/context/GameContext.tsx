@@ -7,10 +7,13 @@ interface GameContextType {
   initGame: (playerNames: string[]) => GameState;
   updatePlayerScore: (score: number) => void;
   resetGame: () => void;
+  undoLastMove: () => void;
 }
 
 // Create a global variable to store the game state
 let globalGameState: GameState | null = null;
+// Store previous game states for undo functionality
+let gameStateHistory: GameState[] = [];
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
@@ -24,6 +27,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log("GameContext: New game state created:", newGameState);
       
       // Update both the global variable and the state
+      gameStateHistory = [];
       globalGameState = newGameState;
       setGameState(newGameState);
       
@@ -38,6 +42,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updatePlayerScore = (score: number) => {
     if (!globalGameState) return;
     
+    // Save current state to history before updating
+    gameStateHistory.push({...globalGameState});
+    
     const updatedState = updateScore(globalGameState, score);
     
     // Update both the global variable and the state
@@ -45,7 +52,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setGameState(updatedState);
   };
 
+  const undoLastMove = () => {
+    if (!gameStateHistory.length) return;
+    
+    // Get the last state from history
+    const previousState = gameStateHistory.pop();
+    
+    if (previousState) {
+      // Restore the previous state
+      globalGameState = previousState;
+      setGameState(previousState);
+    }
+  };
+
   const resetGame = () => {
+    gameStateHistory = [];
     globalGameState = null;
     setGameState(null);
   };
@@ -57,6 +78,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         initGame,
         updatePlayerScore,
         resetGame,
+        undoLastMove,
       }}
     >
       {children}

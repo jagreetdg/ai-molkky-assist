@@ -16,6 +16,7 @@ import { useGame } from '../context/GameContext';
 import { useTheme } from '../context/ThemeContext';
 import ScoreButton from '../components/ScoreButton';
 import PlayerScoreCard from '../components/PlayerScoreCard';
+import MissIndicator from '../components/MissIndicator';
 
 type GamePlayScreenNavigationProp = StackNavigationProp<RootStackParamList, 'GamePlay'>;
 type GamePlayScreenRouteProp = RouteProp<RootStackParamList, 'GamePlay'>;
@@ -27,7 +28,7 @@ interface GamePlayScreenProps {
 const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const navigation = useNavigation<GamePlayScreenNavigationProp>();
   const { colors } = useTheme();
-  const { gameState: contextGameState, updatePlayerScore, resetGame } = useGame();
+  const { gameState: contextGameState, updatePlayerScore, resetGame, undoLastMove } = useGame();
   const [showScoreButtons, setShowScoreButtons] = useState(true);
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
   const [localGameState, setLocalGameState] = useState<GameState | null>(null);
@@ -106,6 +107,28 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
     setSelectedPin(null);
   };
 
+  const handleUndoPress = () => {
+    undoLastMove();
+  };
+
+  const handleResetPress = () => {
+    Alert.alert(
+      "Reset Game",
+      "Are you sure you want to reset the entire game? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        { 
+          text: "Reset", 
+          onPress: () => resetGame(),
+          style: "destructive"
+        }
+      ]
+    );
+  };
+
   const handleCameraPress = () => {
     navigation.navigate('Camera');
   };
@@ -127,26 +150,34 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const activePlayer = getActivePlayer(gameState);
   const playerRankings = getPlayerRanking(gameState.players);
 
-  // Define the pins in a triangle layout (Mölkky style)
-  const firstRowPins = [1, 2];
-  const secondRowPins = [3, 4, 5];
-  const thirdRowPins = [6, 7, 8, 9];
-  const fourthRowPins = [10, 11, 12];
+  // Define the pins in the actual Mölkky board layout
+  // Front row (closest to the player)
+  const frontRow = [7, 9, 8];
+  // Second row
+  const secondRow = [5, 11, 12, 6];
+  // Third row
+  const thirdRow = [3, 10, 4];
+  // Back row (furthest from the player)
+  const backRow = [1, 2];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Current Player Section */}
       <View style={styles.currentPlayerSection}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Player</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Current Player</Text>
+        </View>
         {activePlayer ? (
           <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.playerName, { color: colors.text }]}>{activePlayer.name}</Text>
+            <View style={styles.activePlayerHeader}>
+              <Text style={[styles.playerName, { color: colors.text }]}>{activePlayer.name}</Text>
+              <MissIndicator 
+                consecutiveMisses={activePlayer.consecutiveMisses} 
+                size="medium" 
+                colors={colors}
+              />
+            </View>
             <Text style={[styles.playerScore, { color: colors.text }]}>Score: {activePlayer.score}</Text>
-            <Text style={[styles.playerInfo, { color: colors.text + '99' }]}>
-              {activePlayer.consecutiveMisses > 0 
-                ? `Consecutive Misses: ${activePlayer.consecutiveMisses}` 
-                : 'No consecutive misses'}
-            </Text>
           </View>
         ) : (
           <Text style={[styles.noActivePlayer, { color: colors.text }]}>No active player</Text>
@@ -157,11 +188,13 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
       <View style={styles.actionSection}>
         {showScoreButtons ? (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Pin</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Pin</Text>
+            </View>
             <View style={styles.scoreButtonsContainer}>
-              {/* First row */}
+              {/* Front row */}
               <View style={styles.scoreButtonsRow}>
-                {firstRowPins.map(pin => (
+                {frontRow.map(pin => (
                   <ScoreButton 
                     key={pin}
                     value={pin} 
@@ -173,7 +206,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
               
               {/* Second row */}
               <View style={styles.scoreButtonsRow}>
-                {secondRowPins.map(pin => (
+                {secondRow.map(pin => (
                   <ScoreButton 
                     key={pin}
                     value={pin} 
@@ -185,7 +218,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
               
               {/* Third row */}
               <View style={styles.scoreButtonsRow}>
-                {thirdRowPins.map(pin => (
+                {thirdRow.map(pin => (
                   <ScoreButton 
                     key={pin}
                     value={pin} 
@@ -195,9 +228,9 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
                 ))}
               </View>
               
-              {/* Fourth row */}
+              {/* Back row */}
               <View style={styles.scoreButtonsRow}>
-                {fourthRowPins.map(pin => (
+                {backRow.map(pin => (
                   <ScoreButton 
                     key={pin}
                     value={pin} 
@@ -208,47 +241,67 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
               </View>
             </View>
             
-            {/* Score Submit Button */}
-            <TouchableOpacity
-              style={[styles.scoreSubmitButton, { backgroundColor: colors.accent }]}
-              onPress={handleScoreSubmit}
-            >
-              <Text style={styles.scoreSubmitButtonText}>
-                Score {selectedPin !== null ? selectedPin : '0'}
-              </Text>
-            </TouchableOpacity>
+            {/* Action Buttons Row */}
+            <View style={styles.actionButtonsRow}>
+              {/* Score Submit Button */}
+              <TouchableOpacity
+                style={[styles.scoreSubmitButton, { backgroundColor: colors.success, flex: 2 }]}
+                onPress={handleScoreSubmit}
+              >
+                <Text style={styles.scoreSubmitButtonText}>
+                  Score {selectedPin !== null ? selectedPin : '0'}
+                </Text>
+              </TouchableOpacity>
+              
+              {/* Undo Button */}
+              <TouchableOpacity
+                style={[styles.undoButton, { backgroundColor: colors.warning, flex: 1 }]}
+                onPress={handleUndoPress}
+              >
+                <Ionicons name="arrow-undo" size={24} color="white" />
+              </TouchableOpacity>
+              
+              {/* Reset Button */}
+              <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: colors.error, flex: 1 }]}
+                onPress={handleResetPress}
+              >
+                <Ionicons name="refresh" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
             
-            <TouchableOpacity
-              style={[styles.cameraButton, { backgroundColor: colors.primary }]}
-              onPress={() => setShowScoreButtons(false)}
-            >
-              <Ionicons name="camera-outline" size={24} color="white" />
-              <Text style={styles.cameraButtonText}>Use Camera</Text>
-            </TouchableOpacity>
+            {/* Camera Button Row */}
+            <View style={styles.cameraButtonRow}>
+              <TouchableOpacity
+                style={[styles.cameraButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowScoreButtons(false)}
+              >
+                <Ionicons name="camera-outline" size={24} color="white" />
+                <Text style={styles.cameraButtonText}>Analyze with AI</Text>
+              </TouchableOpacity>
+            </View>
           </>
         ) : (
+          // Camera view
           <>
-            <TouchableOpacity
-              style={[styles.cameraButton, { backgroundColor: colors.primary }]}
-              onPress={handleCameraPress}
-            >
-              <Ionicons name="camera-outline" size={24} color="white" />
-              <Text style={styles.cameraButtonText}>Open Camera</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cameraButton, { backgroundColor: colors.primary, marginTop: 10 }]}
-              onPress={() => setShowScoreButtons(true)}
-            >
-              <Ionicons name="keypad-outline" size={24} color="white" />
-              <Text style={styles.cameraButtonText}>Manual Entry</Text>
-            </TouchableOpacity>
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={[styles.cameraButton, { backgroundColor: colors.primary }]}
+                onPress={() => setShowScoreButtons(true)}
+              >
+                <Ionicons name="keypad-outline" size={24} color="white" />
+                <Text style={styles.cameraButtonText}>Manual Entry</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </View>
 
       {/* Player Rankings */}
       <View style={styles.rankingsSection}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Player Rankings</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Player Rankings</Text>
+        </View>
         <FlatList
           data={playerRankings}
           keyExtractor={(item) => item.id}
@@ -262,6 +315,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
             />
           )}
           style={styles.rankingsList}
+          contentContainerStyle={styles.rankingsListContent}
         />
       </View>
     </View>
@@ -276,10 +330,15 @@ const styles = StyleSheet.create({
   currentPlayerSection: {
     marginBottom: 16,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 8,
   },
   activePlayerCard: {
     padding: 16,
@@ -290,73 +349,109 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
   },
+  activePlayerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   playerName: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 4,
   },
   playerScore: {
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  playerInfo: {
-    fontSize: 14,
-  },
-  noActivePlayer: {
-    fontSize: 16,
-    fontStyle: 'italic',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginRight: 8,
   },
   actionSection: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   scoreButtonsContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scoreButtonsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   scoreSubmitButton: {
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
+    marginRight: 10,
   },
   scoreSubmitButtonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  cameraButton: {
-    flexDirection: 'row',
-    padding: 12,
+  undoButton: {
+    padding: 16,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    marginRight: 10,
+  },
+  resetButton: {
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  cameraButtonRow: {
+    marginBottom: 16,
+  },
+  cameraButton: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
   },
   cameraButtonText: {
     color: 'white',
-    marginLeft: 8,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   rankingsSection: {
     flex: 1,
   },
   rankingsList: {
     flex: 1,
+  },
+  rankingsListContent: {
+    paddingTop: 8,
   },
   noGameText: {
     fontSize: 18,
@@ -373,6 +468,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  noActivePlayer: {
+    fontSize: 16,
+    fontStyle: 'italic',
   },
 });
 
