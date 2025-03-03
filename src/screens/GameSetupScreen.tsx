@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -6,6 +6,8 @@ import {
   TouchableOpacity, 
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
+  Alert
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
@@ -22,6 +24,23 @@ const GameSetupScreen = () => {
   const { initGame } = useGame();
   const [players, setPlayers] = useState<string[]>(['Player 1', 'Player 2']);
   const [isStartingGame, setIsStartingGame] = useState(false);
+
+  // Handle hardware back button press
+  useEffect(() => {
+    const handleBackPress = () => {
+      // Navigate to Home screen instead of going back in navigation stack
+      navigation.navigate('Home');
+      return true; // Prevent default behavior
+    };
+
+    // Add event listener for hardware back button
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up the event listener on component unmount
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [navigation]);
 
   const handlePlayersChange = (newPlayers: string[]) => {
     setPlayers(newPlayers);

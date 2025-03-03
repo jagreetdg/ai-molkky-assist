@@ -7,10 +7,14 @@ import {
   TouchableOpacity, 
   ScrollView,
   Alert,
-  Linking
+  Linking,
+  BackHandler
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types';
 
 interface Settings {
   soundEnabled: boolean;
@@ -20,7 +24,10 @@ interface Settings {
   targetScore: number;
 }
 
+type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Settings'>;
+
 const SettingsScreen = () => {
+  const navigation = useNavigation<SettingsScreenNavigationProp>();
   const [settings, setSettings] = useState<Settings>({
     soundEnabled: true,
     vibrationEnabled: true,
@@ -32,6 +39,19 @@ const SettingsScreen = () => {
   useEffect(() => {
     loadSettings();
   }, []);
+
+  useEffect(() => {
+    const handleBackPress = () => {
+      navigation.navigate('Home');
+      return true; 
+    };
+
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [navigation]);
 
   const loadSettings = async () => {
     try {

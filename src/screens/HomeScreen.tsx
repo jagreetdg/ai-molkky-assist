@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { StyleSheet, View, Text, Image, TouchableOpacity, BackHandler } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
@@ -30,6 +30,23 @@ const HomeScreen = () => {
   const handleSettings = useCallback(() => {
     navigation.navigate('Settings');
   }, [navigation]);
+
+  // Handle hardware back button - exit app from home screen
+  useEffect(() => {
+    const handleBackPress = () => {
+      // This will exit the app when back is pressed on the home screen
+      BackHandler.exitApp();
+      return true; // Prevent default behavior
+    };
+
+    // Add event listener for hardware back button
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up the event listener on component unmount
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

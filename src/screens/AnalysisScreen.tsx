@@ -10,6 +10,7 @@ import {
   Dimensions,
   SafeAreaView,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -51,6 +52,23 @@ const AnalysisScreen = () => {
     
     analyzeImage();
   }, [imageUri]);
+
+  // Handle hardware back button
+  useEffect(() => {
+    const handleBackPress = () => {
+      // Navigate back to GamePlay screen instead of using the default back behavior
+      navigation.navigate('GamePlay');
+      return true; // Prevent default behavior
+    };
+
+    // Add event listener for hardware back button
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up the event listener on component unmount
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [navigation]);
   
   const renderPinOverlay = () => {
     if (pinStates.length === 0) return null;

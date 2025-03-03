@@ -8,6 +8,7 @@ import {
   Alert,
   Modal,
   Animated,
+  BackHandler,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
@@ -121,6 +122,44 @@ const GamePlayScreen = () => {
       isMounted = false;
     };
   }, [gameState, localGameState, gameOverFadeAnim, showGameOverModal]);
+
+  // Handle hardware back button
+  useEffect(() => {
+    const handleBackPress = () => {
+      // Show reset confirmation on hardware back button press
+      if (!showResetModal && !showGameOverModal && !showUndoModal && !showScoreModal) {
+        // Same behavior as the reset button
+        setShowResetModal(true);
+        
+        // Animate the fade in
+        Animated.timing(resetFadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }).start();
+      } else {
+        // If there's an open modal, close it instead
+        if (showResetModal) {
+          handleCloseResetModal();
+        } else if (showGameOverModal) {
+          handleCloseGameOverModal();
+        } else if (showUndoModal) {
+          handleCloseUndoModal();
+        } else if (showScoreModal) {
+          handleCloseScoreModal();
+        }
+      }
+      return true; // Prevent default back behavior
+    };
+
+    // Add event listener for hardware back button
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up the event listener on component unmount
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [showResetModal, showGameOverModal, showUndoModal, showScoreModal, resetFadeAnim]);
 
   const handlePinSelection = (pin: number) => {
     // Don't allow pin selection if game is over

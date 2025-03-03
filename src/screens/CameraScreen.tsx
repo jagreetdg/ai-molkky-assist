@@ -10,6 +10,7 @@ import {
 	SafeAreaView,
 	StatusBar,
 	Platform,
+	BackHandler,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as MediaLibrary from "expo-media-library";
@@ -49,15 +50,43 @@ const CameraScreen = () => {
 				await initTensorFlow();
 			} catch (error) {
 				console.error("Failed to initialize TensorFlow.js:", error);
+				Alert.alert(
+					"Error",
+					"Failed to initialize machine learning engine. Some features may not work correctly."
+				);
+			} finally {
+				setIsLoading(false);
 			}
+		})();
+	}, []);
 
-			const { status: mediaStatus } =
-				await MediaLibrary.requestPermissionsAsync();
-			if (!permission?.granted) {
-				await requestPermission();
+	useEffect(() => {
+		const handleBackPress = () => {
+			// Navigate back to GamePlay screen instead of using the default back behavior
+			navigation.navigate('GamePlay');
+			return true; // Prevent default behavior
+		};
+
+		// Add event listener for hardware back button
+		BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+		// Clean up the event listener on component unmount
+		return () => {
+			BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+		};
+	}, [navigation]);
+
+	useEffect(() => {
+		(async () => {
+			try {
+				const { status: mediaStatus } =
+					await MediaLibrary.requestPermissionsAsync();
+				if (!permission?.granted) {
+					await requestPermission();
+				}
+			} catch (error) {
+				console.error                ("Failed to request media permissions:", error);
 			}
-
-			setIsLoading(false);
 		})();
 	}, [permission, requestPermission]);
 
