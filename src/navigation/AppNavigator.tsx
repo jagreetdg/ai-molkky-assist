@@ -45,6 +45,7 @@ const AppNavigator = () => {
           component={HomeScreen}
           options={{
             title: 'Mölkky Assist AI',
+            headerShown: false,
           }}
         />
         <Stack.Screen 

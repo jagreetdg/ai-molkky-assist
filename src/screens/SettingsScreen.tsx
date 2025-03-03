@@ -121,11 +121,7 @@ const SettingsScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-      </View>
-
-      <View style={styles.section}>
+      <View style={[styles.section, styles.firstSection]}>
         <Text style={styles.sectionTitle}>Game Settings</Text>
         
         <View style={styles.settingItem}>
@@ -223,24 +219,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-  },
-  header: {
     padding: 16,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
   },
   section: {
     backgroundColor: 'white',
     borderRadius: 10,
-    marginHorizontal: 16,
-    marginBottom: 20,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#ddd',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  firstSection: {
+    marginTop: 8,
   },
   sectionTitle: {
     fontSize: 18,
@@ -306,7 +299,8 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     marginHorizontal: 16,
-    marginVertical: 20,
+    marginTop: 20,
+    marginBottom: 40,
     padding: 15,
     backgroundColor: '#e74c3c',
     borderRadius: 8,

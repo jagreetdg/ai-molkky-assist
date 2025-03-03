@@ -101,14 +101,13 @@ const HistoryScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Game History</Text>
-        {gameHistory.length > 0 && (
+      {gameHistory.length > 0 && (
+        <View style={styles.clearButtonContainer}>
           <TouchableOpacity onPress={clearHistory}>
             <Ionicons name="trash-outline" size={24} color="#e74c3c" />
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
@@ -133,16 +132,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     padding: 16,
   },
-  header: {
+  clearButtonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    justifyContent: 'flex-end',
+    marginBottom: 16,
+    paddingTop: 8,
   },
   loadingContainer: {
     flex: 1,

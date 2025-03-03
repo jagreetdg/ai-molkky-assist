@@ -35,19 +35,16 @@ const HomeScreen = () => {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.primary }]}>Mölkky Assist AI</Text>
-        <Text style={[styles.subtitle, { color: colors.text + '99' }]}>
-          Your Smart Scoreboard & Strategy Assistant
-        </Text>
-      </View>
-      
       <View style={styles.logoContainer}>
         <Image 
           source={require('../../assets/icon.png')} 
           style={styles.logo}
           resizeMode="contain"
         />
+        <Text style={[styles.title, { color: colors.primary }]}>Mölkky Assist AI</Text>
+        <Text style={[styles.subtitle, { color: colors.text + '99' }]}>
+          Your Smart Scoreboard & Strategy Assistant
+        </Text>
       </View>
       
       <View style={styles.buttonContainer}>
@@ -89,10 +86,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    paddingTop: 60,
   },
-  header: {
+  logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
+    marginBottom: 40,
+  },
+  logo: {
+    width: 120,
+    height: 120,
     marginBottom: 20,
   },
   title: {
@@ -104,15 +106,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 8,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 40,
-  },
-  logo: {
-    width: 150,
-    height: 150,
   },
   buttonContainer: {
     marginTop: 20,
