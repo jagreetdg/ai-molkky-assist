@@ -4,7 +4,7 @@ import { GameState } from './gameTypes';
 export type RootStackParamList = {
   Home: undefined;
   GameSetup: undefined;
-  GamePlay: { gameState: GameState };
+  GamePlay: undefined;
   Camera: undefined;
   Settings: undefined;
   Analysis: { imageUri: string };

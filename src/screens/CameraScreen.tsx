@@ -72,7 +72,6 @@ const CameraScreen = () => {
 				quality: 0.8,
 				base64: false,
 				skipProcessing: false,
-				ratio: "1:1",
 			});
 
 			if (photo) {
@@ -122,7 +121,7 @@ const CameraScreen = () => {
 	if (!permission.granted) {
 		return (
 			<View style={[styles.permissionContainer, { backgroundColor: colors.background }]}>
-				<Ionicons name="camera-off-outline" size={64} color={colors.error} />
+				<Ionicons name="camera-outline" size={64} color={colors.error} />
 				<Text style={[styles.permissionText, { color: colors.text }]}>No access to camera</Text>
 				<Text style={[styles.permissionSubtext, { color: colors.text }]}>
 					Please enable camera access in your device settings to use this

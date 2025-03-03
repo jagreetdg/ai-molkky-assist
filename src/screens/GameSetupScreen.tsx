@@ -29,17 +29,19 @@ const GameSetupScreen = () => {
 
   const startGame = () => {
     try {
-      console.log("Starting game with players:", players);
+      console.log("GameSetupScreen: Starting game with players:", players);
       setIsStartingGame(true);
       
       // Initialize the game and get the new state
       const newGameState = initGame(players);
-      console.log("Game initialized successfully, state:", newGameState);
+      console.log("GameSetupScreen: Game initialized successfully, state:", JSON.stringify(newGameState));
       
-      // Navigate to GamePlay with the game state as a parameter
-      navigation.replace('GamePlay', { gameState: newGameState });
+      // Navigate directly to GamePlay using navigate instead of replace
+      // This prevents HomeScreen from mounting and resetting the game
+      console.log("GameSetupScreen: Navigating to GamePlay");
+      navigation.navigate('GamePlay');
     } catch (error) {
-      console.error("Error starting game:", error);
+      console.error("GameSetupScreen: Error starting game:", error);
       setIsStartingGame(false);
     }
   };

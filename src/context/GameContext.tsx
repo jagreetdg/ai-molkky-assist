@@ -5,7 +5,7 @@ import { createNewGame, updatePlayerScore as updateScore } from '../services/gam
 interface GameContextType {
   gameState: GameState | null;
   initGame: (playerNames: string[]) => GameState;
-  updatePlayerScore: (score: number) => void;
+  updatePlayerScore: (score: number) => GameState;
   resetGame: () => void;
   undoLastMove: () => void;
 }
@@ -28,32 +28,55 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Update both the global variable and the state
       gameStateHistory = [];
-      globalGameState = newGameState;
-      setGameState(newGameState);
+      globalGameState = {...newGameState}; // Make sure to create a new object
+      
+      // Only update the state if it's different
+      if (JSON.stringify(gameState) !== JSON.stringify(newGameState)) {
+        setGameState({...newGameState}); // Use spread to ensure a new object reference
+      }
       
       console.log("GameContext: Game state set, globalGameState:", globalGameState);
-      return newGameState;
+      return {...newGameState}; // Return a copy to prevent reference issues
     } catch (error) {
       console.error("Error initializing game:", error);
       throw error;
     }
   };
 
-  const updatePlayerScore = (score: number) => {
-    if (!globalGameState) {
+  const updatePlayerScore = (score: number): GameState => {
+    console.log("GameContext: updatePlayerScore called with score:", score);
+    
+    if (!gameState) {
       console.error("Cannot update score: no active game");
-      return;
+      throw new Error("Cannot update score: no active game");
     }
     
-    // Save current state to history before updating
-    gameStateHistory.push({...globalGameState});
-    
-    // Create updated state
-    const updatedState = updateScore(globalGameState, score);
-    
-    // Update both the global variable and the React state
-    globalGameState = updatedState;
-    setGameState({...updatedState}); // Use spread to ensure a new object reference
+    try {
+      // Save the current state to history before updating
+      const currentState = {...gameState};
+      gameStateHistory.push(currentState);
+      
+      // Make sure globalGameState is also not null
+      if (!globalGameState) {
+        console.log("GameContext: globalGameState was null, using local gameState");
+        globalGameState = {...gameState};
+      }
+      
+      // Update the global game state
+      const updatedGameState = updateScore(globalGameState, score);
+      globalGameState = {...updatedGameState}; // Use object spread to ensure a new object reference
+      
+      // Only update the state if it's different
+      if (JSON.stringify(gameState) !== JSON.stringify(updatedGameState)) {
+        setGameState({...updatedGameState});
+      }
+      
+      console.log("GameContext: Updated game state:", updatedGameState);
+      return {...updatedGameState}; // Return a copy to prevent reference issues
+    } catch (error) {
+      console.error("Error updating score:", error);
+      throw error;
+    }
   };
 
   const undoLastMove = () => {
@@ -70,6 +93,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const resetGame = () => {
+    console.log("GameContext: resetGame called");
     gameStateHistory = [];
     globalGameState = null;
     setGameState(null);

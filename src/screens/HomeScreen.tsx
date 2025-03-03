@@ -1,7 +1,7 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { RootStackParamList } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -15,9 +15,13 @@ const HomeScreen = () => {
   const { gameState, resetGame } = useGame();
 
   // Reset any existing game when returning to home screen
-  useEffect(() => {
-    resetGame();
-  }, [resetGame]); // Added resetGame as a dependency
+  // but only when the screen is focused, not during other navigation
+  useFocusEffect(
+    useCallback(() => {
+      console.log("HomeScreen: Screen focused, resetting game");
+      resetGame();
+    }, [resetGame])
+  );
 
   const handleNewGame = useCallback(() => {
     navigation.navigate('GameSetup');

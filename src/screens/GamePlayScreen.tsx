@@ -21,16 +21,11 @@ import PlayerScoreCard from '../components/PlayerScoreCard';
 import MissIndicator from '../components/MissIndicator';
 
 type GamePlayScreenNavigationProp = StackNavigationProp<RootStackParamList, 'GamePlay'>;
-type GamePlayScreenRouteProp = RouteProp<RootStackParamList, 'GamePlay'>;
 
-interface GamePlayScreenProps {
-  route: GamePlayScreenRouteProp;
-}
-
-const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
+const GamePlayScreen = () => {
   const navigation = useNavigation<GamePlayScreenNavigationProp>();
   const { colors } = useTheme();
-  const { gameState: contextGameState, updatePlayerScore, resetGame, undoLastMove } = useGame();
+  const { gameState: contextGameState, updatePlayerScore, resetGame, undoLastMove, initGame } = useGame();
   const [showScoreButtons, setShowScoreButtons] = useState(true);
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
   const [localGameState, setLocalGameState] = useState<GameState | null>(null);
@@ -44,31 +39,47 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   } | null>(null);
   const fadeAnim = useState(new Animated.Value(0))[0];
   
-  // Use the game state from context or route params
-  const gameState = contextGameState || route.params?.gameState;
+  // Ensure we have a valid game state from context
+  const gameState = contextGameState;
 
-  // Sync local state with context when it changes
+  // Initialize local state from context when it changes
   useEffect(() => {
-    if (contextGameState) {
-      setLocalGameState(contextGameState);
+    console.log("GamePlayScreen: useEffect for syncing local state triggered");
+    console.log(" - Context game state:", contextGameState);
+    console.log(" - Local game state:", localGameState);
+    
+    if (contextGameState && JSON.stringify(contextGameState) !== JSON.stringify(localGameState)) {
+      console.log("GamePlayScreen: Syncing local state with context state");
+      setLocalGameState({...contextGameState});
     }
-  }, [contextGameState]);
+  }, [contextGameState, localGameState]);
 
   // Check game state when screen gains focus
   useFocusEffect(
     useCallback(() => {
-      console.log("GamePlayScreen: useFocusEffect triggered, gameState from route:", route.params?.gameState);
-      console.log("GamePlayScreen: useFocusEffect triggered, gameState from context:", contextGameState);
-      console.log("GamePlayScreen: useFocusEffect triggered, combined gameState:", gameState);
+      console.log("GamePlayScreen: useFocusEffect triggered with:");
+      console.log(" - Context game state:", contextGameState);
+      console.log(" - Local game state:", localGameState);
       
-      if (!gameState) {
-        console.log("GamePlayScreen: No game state available, navigating back to GameSetup");
-        navigation.replace('GameSetup');
-      } else {
-        console.log("GamePlayScreen: Valid game state found:", gameState);
-        setLocalGameState(gameState);
+      // If we have a local state but no context state, update the context
+      if (!contextGameState && localGameState) {
+        console.log("GamePlayScreen: Context state is null but local state exists, using local state");
+        // We need to re-initialize the game with the player names from local state
+        if (localGameState.players) {
+          const playerNames = localGameState.players.map(p => p.name);
+          initGame(playerNames);
+        }
+        return;
       }
-    }, [gameState, route.params?.gameState, contextGameState, navigation])
+      
+      // If we have no game state at all, navigate back to setup
+      if (!contextGameState && !localGameState) {
+        console.log("GamePlayScreen: No game state available, navigating back to GameSetup");
+        navigation.navigate('GameSetup');
+        return;
+      }
+      
+    }, [contextGameState, localGameState, navigation, initGame])
   );
 
   // Handle game over
@@ -84,7 +95,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
             text: 'New Game', 
             onPress: () => {
               resetGame();
-              navigation.replace('GameSetup');
+              navigation.navigate('GameSetup');
             } 
           },
           {
@@ -109,6 +120,14 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   const handleScoreSubmit = () => {
     // If no pin is selected, score is 0
     const score = selectedPin !== null ? selectedPin : 0;
+    console.log("Submitting score:", score);
+    console.log("Current game state:", gameState);
+    
+    // Check if we have a valid game state
+    if (!gameState) {
+      console.error("No game state found! Cannot update score.");
+      return;
+    }
     
     // Get the active player before updating
     const activePlayer = getActivePlayer(gameState);
@@ -198,7 +217,23 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
         <Text style={[styles.noGameText, { color: colors.text }]}>No active game found.</Text>
         <TouchableOpacity
           style={[styles.newGameButton, { backgroundColor: colors.primary }]}
-          onPress={() => navigation.replace('GameSetup')}
+          onPress={() => navigation.navigate('GameSetup')}
+        >
+          <Text style={styles.newGameButtonText}>Start New Game</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!gameState) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>
+          No active game found. Please start a new game.
+        </Text>
+        <TouchableOpacity
+          style={[styles.newGameButton, { backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate('GameSetup')}
         >
           <Text style={styles.newGameButtonText}>Start New Game</Text>
         </TouchableOpacity>
@@ -207,7 +242,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   }
 
   const activePlayer = getActivePlayer(gameState);
-  const playerRankings = getPlayerRanking(gameState.players);
+  const playerRankings = gameState.players ? getPlayerRanking(gameState.players) : [];
 
   // Define the pins in the actual Mölkky board layout
   // Front row (closest to the player)
@@ -729,6 +764,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  errorText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });
 
