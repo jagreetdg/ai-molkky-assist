@@ -126,7 +126,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Enter Score</Text>
             <View style={styles.scoreButtonsContainer}>
               <View style={styles.scoreButtonsRow}>
-                <ScoreButton value={0} onPress={() => handleScoreButtonPress(0)} color={colors.error} />
+                <ScoreButton value={0} onPress={() => handleScoreButtonPress(0)} color={colors.primary} />
                 <ScoreButton value={1} onPress={() => handleScoreButtonPress(1)} color={colors.primary} />
                 <ScoreButton value={2} onPress={() => handleScoreButtonPress(2)} color={colors.primary} />
                 <ScoreButton value={3} onPress={() => handleScoreButtonPress(3)} color={colors.primary} />
@@ -141,7 +141,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
                 <ScoreButton value={8} onPress={() => handleScoreButtonPress(8)} color={colors.primary} />
                 <ScoreButton value={9} onPress={() => handleScoreButtonPress(9)} color={colors.primary} />
                 <ScoreButton value={10} onPress={() => handleScoreButtonPress(10)} color={colors.primary} />
-                <ScoreButton value={12} onPress={() => handleScoreButtonPress(12)} color={colors.success} />
+                <ScoreButton value={12} onPress={() => handleScoreButtonPress(12)} color={colors.primary} />
               </View>
             </View>
             <TouchableOpacity
