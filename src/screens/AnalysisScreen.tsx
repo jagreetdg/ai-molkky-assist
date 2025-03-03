@@ -7,13 +7,16 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   ScrollView,
-  Dimensions
+  Dimensions,
+  SafeAreaView,
+  Platform,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, PinState, OptimalMove } from '../types/index';
 import { detectPinsFromImage, calculateOptimalMove } from '../services/imageAnalysisService';
+import { useTheme } from '../context/ThemeContext';
 
 type AnalysisScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Analysis'>;
 type AnalysisScreenRouteProp = RouteProp<RootStackParamList, 'Analysis'>;
@@ -24,6 +27,7 @@ const AnalysisScreen = () => {
   const navigation = useNavigation<AnalysisScreenNavigationProp>();
   const route = useRoute<AnalysisScreenRouteProp>();
   const { imageUri } = route.params;
+  const { colors } = useTheme();
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [pinStates, setPinStates] = useState<PinState[]>([]);
@@ -33,11 +37,8 @@ const AnalysisScreen = () => {
   useEffect(() => {
     const analyzeImage = async () => {
       try {
-        // Detect pins from the image
         const detectedPins = await detectPinsFromImage(imageUri);
         setPinStates(detectedPins);
-        
-        // Calculate the optimal move
         const move = calculateOptimalMove(detectedPins);
         setOptimalMove(move);
       } catch (error) {
@@ -64,7 +65,7 @@ const AnalysisScreen = () => {
               {
                 left: pin.position.x,
                 top: pin.position.y,
-                backgroundColor: pin.isStanding ? '#2ecc71' : '#e74c3c',
+                backgroundColor: pin.isStanding ? colors.success : colors.error,
               },
             ]}
           >
@@ -82,263 +83,345 @@ const AnalysisScreen = () => {
     
     return (
       <View style={styles.optimalMoveContainer}>
-        <Text style={styles.sectionTitle}>AI Analysis</Text>
-        
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Standing Pins</Text>
-          <View style={styles.pinGrid}>
-            {standingPins.map(pin => (
-              <View key={pin.number} style={styles.pinBadge}>
-                <Text style={styles.pinBadgeText}>{pin.number}</Text>
-              </View>
-            ))}
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="analytics-outline" size={24} color={colors.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>AI Analysis</Text>
+          </View>
+
+          <View style={styles.cardSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Standing Pins</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pinScroll}>
+              {standingPins.map(pin => (
+                <View key={pin.number} style={[styles.pinBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.pinBadgeText}>{pin.number}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.cardSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recommended Move</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pinScroll}>
+              {optimalMove.targetPins.map(pinNumber => (
+                <View key={pinNumber} style={[styles.pinBadge, { backgroundColor: colors.success }]}>
+                  <Text style={styles.pinBadgeText}>{pinNumber}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: colors.background }]}>
+              <Ionicons name="trophy-outline" size={24} color={colors.success} />
+              <Text style={[styles.statValue, { color: colors.text }]}>{optimalMove.expectedScore}</Text>
+              <Text style={[styles.statLabel, { color: colors.text }]}>Expected Score</Text>
+            </View>
+            <View style={[styles.statCard, { backgroundColor: colors.background }]}>
+              <Ionicons name="trending-up-outline" size={24} color={colors.warning} />
+              <Text style={[styles.statValue, { color: colors.text }]}>{Math.round(optimalMove.winProbability * 100)}%</Text>
+              <Text style={[styles.statLabel, { color: colors.text }]}>Win Probability</Text>
+            </View>
+          </View>
+
+          <View style={styles.tipContainer}>
+            <Ionicons name="bulb-outline" size={24} color={colors.warning} />
+            <Text style={[styles.tipText, { color: colors.text }]}>
+              {optimalMove.targetPins.length === 1 
+                ? `Aim directly at pin ${optimalMove.targetPins[0]} for ${optimalMove.targetPins[0]} points.`
+                : `Target pins ${optimalMove.targetPins.join(', ')} for ${optimalMove.expectedScore} points.`
+              }
+            </Text>
           </View>
         </View>
-        
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Optimal Move</Text>
-          <Text style={styles.optimalMoveText}>
-            Target {optimalMove.targetPins.length > 1 ? 'pins' : 'pin'}:
-          </Text>
-          <View style={styles.pinGrid}>
-            {optimalMove.targetPins.map(pinNumber => (
-              <View key={pinNumber} style={[styles.pinBadge, styles.optimalPinBadge]}>
-                <Text style={styles.pinBadgeText}>{pinNumber}</Text>
-              </View>
-            ))}
-          </View>
+
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>Back to Game</Text>
+          </TouchableOpacity>
           
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Expected Score</Text>
-              <Text style={styles.statValue}>{optimalMove.expectedScore}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>Win Probability</Text>
-              <Text style={styles.statValue}>
-                {Math.round(optimalMove.winProbability * 100)}%
-              </Text>
-            </View>
-          </View>
+          <TouchableOpacity 
+            style={[styles.button, { backgroundColor: colors.success }]}
+            onPress={() => navigation.navigate('Camera')}
+          >
+            <Ionicons name="camera-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>New Photo</Text>
+          </TouchableOpacity>
         </View>
+      </View>
+    );
+  };
+
+  // Create grid cells for the 8x8 grid
+  const renderGridOverlay = () => {
+    return (
+      <View style={styles.gridOverlay}>
+        {/* Horizontal lines */}
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <View 
+            key={`h-${i}`} 
+            style={[
+              styles.gridLine, 
+              { 
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: `${i * 12.5}%`,
+                height: 1,
+                backgroundColor: 'rgba(255, 255, 255, 0.3)'
+              }
+            ]} 
+          />
+        ))}
         
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Strategy Tip</Text>
-          <Text style={styles.tipText}>
-            {optimalMove.targetPins.length === 1 
-              ? `Aim directly at pin ${optimalMove.targetPins[0]} for the best chance to score ${optimalMove.targetPins[0]} points.`
-              : `Try to knock down ${optimalMove.targetPins.length} pins to score ${optimalMove.expectedScore} points. Focus on the area with pins ${optimalMove.targetPins.join(', ')}.`
-            }
-          </Text>
-        </View>
+        {/* Vertical lines */}
+        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <View 
+            key={`v-${i}`} 
+            style={[
+              styles.gridLine, 
+              { 
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: `${i * 12.5}%`,
+                width: 1,
+                backgroundColor: 'rgba(255, 255, 255, 0.3)'
+              }
+            ]} 
+          />
+        ))}
       </View>
     );
   };
   
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: imageUri }} style={styles.image} />
-        {!isAnalyzing && renderPinOverlay()}
-        
-        {isAnalyzing && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#3498db" />
-            <Text style={styles.loadingText}>Analyzing pin positions...</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <ScrollView bounces={false}>
+        <View style={styles.imageContainer}>
+          <View style={styles.imageFrame}>
+            <Image source={{ uri: imageUri }} style={styles.image} />
+            
+            {/* Grid overlay with 8x8 grid */}
+            {renderGridOverlay()}
+            
+            {!isAnalyzing && renderPinOverlay()}
+            
+            {isAnalyzing && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Analyzing pin positions...</Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      
-      {analysisError ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={40} color="#e74c3c" />
-          <Text style={styles.errorText}>{analysisError}</Text>
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
         </View>
-      ) : (
-        <>
-          {!isAnalyzing && renderOptimalMoveInfo()}
-          
-          <View style={styles.buttonContainer}>
+
+        {analysisError ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={40} color={colors.error} />
+            <Text style={[styles.errorText, { color: colors.error }]}>{analysisError}</Text>
             <TouchableOpacity 
-              style={[styles.button, styles.primaryButton]}
+              style={[styles.button, { backgroundColor: colors.primary }]}
               onPress={() => navigation.goBack()}
             >
-              <Text style={styles.buttonText}>Back to Game</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[styles.button, styles.secondaryButton]}
-              onPress={() => navigation.navigate('Camera')}
-            >
-              <Text style={styles.buttonText}>Take New Photo</Text>
+              <Text style={styles.buttonText}>Try Again</Text>
             </TouchableOpacity>
           </View>
-        </>
-      )}
-    </ScrollView>
+        ) : (
+          !isAnalyzing && renderOptimalMoveInfo()
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
   },
   imageContainer: {
     width: '100%',
-    height: width * 0.75, // 4:3 aspect ratio
+    height: width,
     position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  imageFrame: {
+    width: width - 32,
+    height: width - 32,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+  },
+  gridOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  gridLine: {
+    // Styles applied inline in renderGridOverlay
+  },
+  pinOverlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  pinMarker: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'white',
+    transform: [{ translateX: -12 }, { translateY: -12 }],
+  },
+  pinNumber: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     color: 'white',
-    fontSize: 16,
     marginTop: 10,
-  },
-  pinOverlayContainer: {
-    ...StyleSheet.absoluteFillObject,
-    position: 'absolute',
-  },
-  pinMarker: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  pinNumber: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  errorContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  errorText: {
     fontSize: 16,
-    color: '#e74c3c',
-    textAlign: 'center',
-    marginVertical: 15,
   },
   optimalMoveContainer: {
-    padding: 20,
+    padding: 16,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 15,
+  card: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  infoCard: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#ddd',
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  infoTitle: {
+  cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#3498db',
+    marginLeft: 8,
   },
-  optimalMoveText: {
+  cardSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
     fontSize: 16,
-    marginBottom: 10,
+    fontWeight: '600',
+    marginBottom: 8,
   },
-  pinGrid: {
+  pinScroll: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 15,
   },
   pinBadge: {
-    backgroundColor: '#95a5a6',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 5,
-  },
-  optimalPinBadge: {
-    backgroundColor: '#2ecc71',
+    marginRight: 8,
   },
   pinBadgeText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
   },
-  statsRow: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  statItem: {
+  statCard: {
     flex: 1,
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#f8f9fa',
     borderRadius: 8,
-    marginHorizontal: 5,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    marginBottom: 5,
+    padding: 12,
+    alignItems: 'center',
+    marginHorizontal: 4,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c3e50',
+    marginVertical: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+  },
+  tipContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
   tipText: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: '#2c3e50',
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingTop: 0,
   },
   button: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 5,
-  },
-  primaryButton: {
-    backgroundColor: '#3498db',
-  },
-  secondaryButton: {
-    backgroundColor: '#2ecc71',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flex: 1,
+    marginHorizontal: 4,
   },
   buttonText: {
     color: 'white',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  errorContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  errorText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    textAlign: 'center',
+    marginVertical: 16,
   },
 });
 

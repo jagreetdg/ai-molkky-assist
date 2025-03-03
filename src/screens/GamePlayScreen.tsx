@@ -130,6 +130,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
   };
 
   const handleCameraPress = () => {
+    // Navigate directly to the Camera screen
     navigation.navigate('Camera');
   };
 
@@ -274,7 +275,7 @@ const GamePlayScreen = ({ route }: GamePlayScreenProps) => {
             <View style={styles.cameraButtonRow}>
               <TouchableOpacity
                 style={[styles.cameraButton, { backgroundColor: colors.primary }]}
-                onPress={() => setShowScoreButtons(false)}
+                onPress={handleCameraPress}
               >
                 <Ionicons name="camera-outline" size={24} color="white" />
                 <Text style={styles.cameraButtonText}>Analyze with AI</Text>
