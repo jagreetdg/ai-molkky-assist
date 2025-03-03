@@ -1,50 +1,92 @@
-# Welcome to your Expo app 👋
+# Mölkky Assist AI
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A smart Mölkky scoreboard app with AI-powered pin analysis and strategy recommendations.
 
-## Get started
+## Features
 
-1. Install dependencies
+- **Scoreboard**: Keep track of player scores in your Mölkky games
+- **Pin Analysis**: Take pictures of the current pin positions and get AI analysis
+- **Strategy Recommendations**: Get suggestions for optimal pins to target based on the current game state
+- **Game History**: View past games and statistics
+- **Customizable Settings**: Adjust game rules and app preferences
 
-   ```bash
-   npm install
-   ```
+## Technologies Used
 
-2. Start the app
+- React Native
+- Expo
+- TensorFlow.js for image analysis
+- React Navigation for navigation
+- AsyncStorage for local data storage
 
-   ```bash
-    npx expo start
-   ```
+## Installation
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+1. Clone the repository:
 ```bash
-npm run reset-project
+git clone https://github.com/yourusername/molkky-assist-ai.git
+cd molkky-assist-ai
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+2. Install dependencies:
+```bash
+npm install
+```
 
-## Learn more
+3. Start the development server:
+```bash
+npx expo start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+4. Run on a device or emulator:
+   - Scan the QR code with the Expo Go app on your phone
+   - Press 'a' to run on an Android emulator
+   - Press 'i' to run on an iOS simulator
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## How to Play
 
-## Join the community
+1. Start a new game from the home screen
+2. Add player names (2-10 players)
+3. During gameplay, you can:
+   - Enter scores manually using the score pad
+   - Take a picture of the pins to get AI analysis and strategy recommendations
+4. The game follows standard Mölkky rules:
+   - Knocking down one pin scores the number on the pin
+   - Knocking down multiple pins scores the number of pins knocked down
+   - A player wins by reaching exactly 50 points
+   - If a player exceeds 50 points, their score is reduced to 25
+   - If a player misses three times in a row, they are eliminated
 
-Join our community of developers creating universal apps.
+## Development
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Project Structure
+
+```
+molkky-assist-ai/
+├── assets/               # Images and icons
+├── src/
+│   ├── components/       # Reusable UI components
+│   ├── context/          # React Context providers
+│   ├── navigation/       # Navigation configuration
+│   ├── screens/          # App screens
+│   ├── services/         # Business logic services
+│   ├── utils/            # Utility functions
+│   └── types.ts          # TypeScript type definitions
+├── App.tsx               # Main app component
+└── package.json          # Dependencies and scripts
+```
+
+### Future Enhancements
+
+- Implement a trained model for more accurate pin detection
+- Add multiplayer functionality via Bluetooth or local network
+- Support for different Mölkky rule variations
+- Statistics and player rankings
+- Cloud synchronization for game history
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Inspired by traditional Mölkky scoreboard apps
+- Pin detection powered by TensorFlow.js
