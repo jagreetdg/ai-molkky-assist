@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -7,23 +7,32 @@ import {
   KeyboardAvoidingView,
   Platform,
   BackHandler,
-  Alert
+  Alert,
+  Animated,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, GameState } from '../types';
 import PlayerList from '../components/PlayerList';
 import { useTheme } from '../context/ThemeContext';
 import { useGame } from '../context/GameContext';
+import AnimatedContainer from '../components/AnimatedContainer';
+import AppButton from '../components/AppButton';
 
 type GameSetupScreenNavigationProp = StackNavigationProp<RootStackParamList, 'GameSetup'>;
 
 const GameSetupScreen = () => {
   const navigation = useNavigation<GameSetupScreenNavigationProp>();
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   const { initGame } = useGame();
   const [players, setPlayers] = useState<string[]>(['Player 1', 'Player 2']);
   const [isStartingGame, setIsStartingGame] = useState(false);
+  
+  // Animation values
+  const headerAnim = useRef(new Animated.Value(0)).current;
 
   // Handle hardware back button press
   useEffect(() => {
@@ -35,6 +44,13 @@ const GameSetupScreen = () => {
 
     // Add event listener for hardware back button
     BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+    
+    // Start header animation
+    Animated.timing(headerAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
 
     // Clean up the event listener on component unmount
     return () => {
@@ -66,39 +82,101 @@ const GameSetupScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
-    >
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Game Setup</Text>
-          <Text style={[styles.subtitle, { color: colors.text + '99' }]}>Add players (2-10)</Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: Platform.OS === 'android' ? 30 : 0 }]}>
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      
+      <Animated.View 
+        style={[
+          styles.header,
+          { 
+            backgroundColor: colors.card,
+            opacity: headerAnim,
+            transform: [{ translateY: headerAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-50, 0]
+            })}]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Game Setup</Text>
+        <View style={styles.headerRight} />
+      </Animated.View>
+      
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={100}
+      >
+        <View style={styles.content}>
+          <AnimatedContainer index={0}>
+            <View style={[styles.infoCard, { backgroundColor: colors.card }]}>
+              <Text style={[styles.subtitle, { color: colors.text + '99' }]}>
+                Add players (2-10) to start a new game
+              </Text>
+            </View>
+          </AnimatedContainer>
+          
+          <AnimatedContainer index={1}>
+            <PlayerList 
+              players={players} 
+              onPlayersChange={handlePlayersChange}
+              minPlayers={2}
+              maxPlayers={10}
+            />
+          </AnimatedContainer>
+          
+          <AnimatedContainer index={2} delay={200}>
+            <View style={styles.buttonContainer}>
+              <AppButton 
+                title="Start Game"
+                variant="success"
+                icon="play"
+                onPress={startGame}
+                disabled={players.length < 2 || isStartingGame}
+                fullWidth
+              />
+            </View>
+          </AnimatedContainer>
         </View>
-        
-        <PlayerList 
-          players={players} 
-          onPlayersChange={handlePlayersChange}
-          minPlayers={2}
-          maxPlayers={10}
-        />
-        
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.startButton, { backgroundColor: colors.success }]} 
-            onPress={startGame}
-            disabled={players.length < 2 || isStartingGame}
-          >
-            <Text style={styles.startButtonText}>Start Game</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerRight: {
+    width: 40,
+  },
   container: {
     flex: 1,
   },
@@ -106,34 +184,22 @@ const styles = StyleSheet.create({
     padding: 20,
     flex: 1,
   },
-  header: {
+  infoCard: {
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   subtitle: {
     fontSize: 16,
-    marginTop: 5,
+    textAlign: 'center',
   },
   buttonContainer: {
     marginTop: 20,
-  },
-  startButton: {
-    borderRadius: 10,
-    padding: 15,
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  startButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
   },
 });
 

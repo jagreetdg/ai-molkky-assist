@@ -22,8 +22,8 @@ A smart Mölkky scoreboard app with AI-powered pin analysis and strategy recomme
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/molkky-assist-ai.git
-cd molkky-assist-ai
+git clone https://github.com/yourusername/ai-molkky-assist.git
+cd ai-molkky-assist
 ```
 
 2. Install dependencies:
@@ -60,7 +60,7 @@ npx expo start
 ### Project Structure
 
 ```
-molkky-assist-ai/
+ai-molkky-assist/
 ├── assets/               # Images and icons
 ├── src/
 │   ├── components/       # Reusable UI components

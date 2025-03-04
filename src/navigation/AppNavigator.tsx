@@ -52,13 +52,21 @@ const AppNavigator = () => {
           component={GameSetupScreen}
           options={{
             title: 'New Game',
+            headerShown: false,
           }}
         />
         <Stack.Screen 
           name="GamePlay" 
           component={GamePlayScreen}
           options={{
-            title: 'Game in Progress',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="Settings" 
+          component={SettingsScreen}
+          options={{
+            headerShown: false,
           }}
         />
         <Stack.Screen 
@@ -72,14 +80,7 @@ const AppNavigator = () => {
           name="Analysis" 
           component={AnalysisScreen}
           options={{
-            title: 'Move Analysis',
-          }}
-        />
-        <Stack.Screen 
-          name="Settings" 
-          component={SettingsScreen}
-          options={{
-            title: 'Settings',
+            headerShown: false,
           }}
         />
       </Stack.Navigator>

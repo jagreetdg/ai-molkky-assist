@@ -8,13 +8,19 @@ import {
   ScrollView,
   Alert,
   Linking,
-  BackHandler
+  BackHandler,
+  Platform,
+  StatusBar,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types';
+import { useTheme } from '../context/ThemeContext';
+import AnimatedContainer from '../components/AnimatedContainer';
+import AppButton from '../components/AppButton';
 
 interface Settings {
   soundEnabled: boolean;
@@ -28,6 +34,8 @@ type SettingsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Set
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const { colors, isDarkMode } = useTheme();
+  
   const [settings, setSettings] = useState<Settings>({
     soundEnabled: true,
     vibrationEnabled: true,
@@ -35,9 +43,19 @@ const SettingsScreen = () => {
     autoSaveGames: true,
     targetScore: 50,
   });
+  
+  // Animation values
+  const headerAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadSettings();
+    
+    // Start header animation
+    Animated.timing(headerAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   useEffect(() => {
@@ -122,134 +140,210 @@ const SettingsScreen = () => {
     onToggle: () => void,
     icon: string
   ) => (
-    <View style={styles.settingItem}>
+    <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
       <View style={styles.settingIcon}>
-        <Ionicons name={icon as any} size={24} color="#3498db" />
+        <Ionicons name={icon as any} size={24} color={colors.primary} />
       </View>
       <View style={styles.settingContent}>
-        <Text style={styles.settingTitle}>{title}</Text>
-        <Text style={styles.settingDescription}>{description}</Text>
+        <Text style={[styles.settingTitle, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.settingDescription, { color: colors.text + '99' }]}>{description}</Text>
       </View>
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: '#bdc3c7', true: '#3498db' }}
-        thumbColor={value ? '#fff' : '#f4f3f4'}
+        trackColor={{ false: colors.border, true: colors.primary + '80' }}
+        thumbColor={value ? colors.primary : '#f4f3f4'}
+        ios_backgroundColor={colors.border}
       />
     </View>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={[styles.section, styles.firstSection]}>
-        <Text style={styles.sectionTitle}>Game Settings</Text>
-        
-        <View style={styles.settingItem}>
-          <View style={styles.settingIcon}>
-            <Ionicons name="flag" size={24} color="#3498db" />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={styles.settingTitle}>Target Score</Text>
-            <Text style={styles.settingDescription}>
-              Set the winning score for the game
-            </Text>
-          </View>
-          <View style={styles.scoreButtonsContainer}>
-            {[25, 50, 75].map((score) => (
-              <TouchableOpacity
-                key={score}
-                style={[
-                  styles.scoreButton,
-                  settings.targetScore === score && styles.activeScoreButton,
-                ]}
-                onPress={() => setTargetScore(score)}
-              >
-                <Text
-                  style={[
-                    styles.scoreButtonText,
-                    settings.targetScore === score && styles.activeScoreButtonText,
-                  ]}
-                >
-                  {score}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {renderSettingSwitch(
-          'Auto-save Games',
-          'Automatically save completed games to history',
-          settings.autoSaveGames,
-          () => toggleSetting('autoSaveGames'),
-          'save-outline'
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>App Settings</Text>
-        
-        {renderSettingSwitch(
-          'Sound Effects',
-          'Enable sound effects in the app',
-          settings.soundEnabled,
-          () => toggleSetting('soundEnabled'),
-          'volume-high-outline'
-        )}
-        
-        {renderSettingSwitch(
-          'Vibration',
-          'Enable haptic feedback',
-          settings.vibrationEnabled,
-          () => toggleSetting('vibrationEnabled'),
-          'phone-portrait-outline'
-        )}
-        
-        {renderSettingSwitch(
-          'Dark Mode',
-          'Use dark color theme (requires app restart)',
-          settings.darkMode,
-          () => toggleSetting('darkMode'),
-          'moon-outline'
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>About</Text>
-        
-        <TouchableOpacity style={styles.aboutItem} onPress={openPrivacyPolicy}>
-          <Ionicons name="shield-checkmark-outline" size={24} color="#3498db" />
-          <Text style={styles.aboutText}>Privacy Policy</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      
+      <Animated.View 
+        style={[
+          styles.header,
+          { 
+            backgroundColor: colors.card,
+            opacity: headerAnim,
+            transform: [{ translateY: headerAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [-50, 0]
+            })}]
+          }
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        
-        <View style={styles.aboutItem}>
-          <Ionicons name="information-circle-outline" size={24} color="#3498db" />
-          <Text style={styles.aboutText}>Version 1.0.0</Text>
-        </View>
-      </View>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
+        <View style={styles.headerRight} />
+      </Animated.View>
+      
+      <ScrollView 
+        style={[styles.scrollContent, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <AnimatedContainer index={0}>
+          <View style={[styles.section, styles.firstSection, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.primary }]}>Game Settings</Text>
+            
+            <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
+              <View style={styles.settingIcon}>
+                <Ionicons name="flag" size={24} color={colors.primary} />
+              </View>
+              <View style={styles.settingContent}>
+                <Text style={[styles.settingTitle, { color: colors.text }]}>Target Score</Text>
+                <Text style={[styles.settingDescription, { color: colors.text + '99' }]}>
+                  Set the winning score for the game
+                </Text>
+              </View>
+              <View style={styles.scoreButtonsContainer}>
+                {[25, 50, 75].map((score) => (
+                  <TouchableOpacity
+                    key={score}
+                    style={[
+                      styles.scoreButton,
+                      { borderColor: colors.primary },
+                      settings.targetScore === score && [
+                        styles.activeScoreButton,
+                        { backgroundColor: colors.primary }
+                      ],
+                    ]}
+                    onPress={() => setTargetScore(score)}
+                  >
+                    <Text
+                      style={[
+                        styles.scoreButtonText,
+                        { color: colors.primary },
+                        settings.targetScore === score && styles.activeScoreButtonText,
+                      ]}
+                    >
+                      {score}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-      <TouchableOpacity style={styles.resetButton} onPress={resetSettings}>
-        <Text style={styles.resetButtonText}>Reset to Default Settings</Text>
-      </TouchableOpacity>
-    </ScrollView>
+            {renderSettingSwitch(
+              'Auto-save Games',
+              'Automatically save completed games to history',
+              settings.autoSaveGames,
+              () => toggleSetting('autoSaveGames'),
+              'save-outline'
+            )}
+          </View>
+        </AnimatedContainer>
+
+        <AnimatedContainer index={1}>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.primary }]}>App Settings</Text>
+            
+            {renderSettingSwitch(
+              'Sound Effects',
+              'Enable sound effects in the app',
+              settings.soundEnabled,
+              () => toggleSetting('soundEnabled'),
+              'volume-high-outline'
+            )}
+            
+            {renderSettingSwitch(
+              'Vibration',
+              'Enable haptic feedback',
+              settings.vibrationEnabled,
+              () => toggleSetting('vibrationEnabled'),
+              'phone-portrait-outline'
+            )}
+            
+            {renderSettingSwitch(
+              'Dark Mode',
+              'Use dark color theme (requires app restart)',
+              settings.darkMode,
+              () => toggleSetting('darkMode'),
+              'moon-outline'
+            )}
+          </View>
+        </AnimatedContainer>
+
+        <AnimatedContainer index={2}>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.primary }]}>About</Text>
+            
+            <TouchableOpacity 
+              style={[styles.aboutItem, { borderBottomColor: colors.border }]} 
+              onPress={openPrivacyPolicy}
+            >
+              <Ionicons name="shield-checkmark-outline" size={24} color={colors.primary} />
+              <Text style={[styles.aboutText, { color: colors.text }]}>Privacy Policy</Text>
+            </TouchableOpacity>
+            
+            <View style={[styles.aboutItem, { borderBottomColor: 'transparent' }]}>
+              <Ionicons name="information-circle-outline" size={24} color={colors.primary} />
+              <Text style={[styles.aboutText, { color: colors.text }]}>Version 1.0.0</Text>
+            </View>
+          </View>
+        </AnimatedContainer>
+
+        <AnimatedContainer index={3} delay={200}>
+          <View style={styles.buttonContainer}>
+            <AppButton
+              title="Reset to Default Settings"
+              variant="danger"
+              icon="refresh-outline"
+              onPress={resetSettings}
+            />
+          </View>
+        </AnimatedContainer>
+        
+        <View style={styles.spacer} />
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
-    padding: 16,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    zIndex: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerRight: {
+    width: 40,
+  },
+  scrollContent: {
+    paddingBottom: 30,
   },
   section: {
-    backgroundColor: 'white',
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
     elevation: 2,
   },
   firstSection: {
@@ -259,14 +353,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#3498db',
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   settingIcon: {
     marginRight: 15,
@@ -280,8 +372,7 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 14,
-    color: '#7f8c8d',
-    marginTop: 2,
+    marginTop: 3,
   },
   scoreButtonsContainer: {
     flexDirection: 'row',
@@ -291,7 +382,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#3498db',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 8,
@@ -300,7 +390,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#3498db',
   },
   scoreButtonText: {
-    color: '#3498db',
     fontWeight: 'bold',
   },
   activeScoreButtonText: {
@@ -309,28 +398,21 @@ const styles = StyleSheet.create({
   aboutItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   aboutText: {
     fontSize: 16,
     marginLeft: 15,
   },
-  resetButton: {
-    marginHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 40,
-    padding: 15,
-    backgroundColor: '#e74c3c',
-    borderRadius: 8,
-    alignItems: 'center',
+  buttonContainer: {
+    marginTop: 10,
+    marginBottom: 20,
+    paddingHorizontal: 8,
   },
-  resetButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+  spacer: {
+    height: 40
+  }
 });
 
 export default SettingsScreen;

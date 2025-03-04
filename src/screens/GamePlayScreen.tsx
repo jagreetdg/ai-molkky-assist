@@ -9,6 +9,9 @@ import {
   Modal,
   Animated,
   BackHandler,
+  StatusBar,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
@@ -25,8 +28,8 @@ type GamePlayScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Gam
 
 const GamePlayScreen = () => {
   const navigation = useNavigation<GamePlayScreenNavigationProp>();
-  const { colors } = useTheme();
-  const { gameState: contextGameState, updatePlayerScore, resetGame, undoLastMove, initGame } = useGame();
+  const { colors, isDarkMode } = useTheme();
+  const { gameState: contextGameState, updatePlayerScore, resetGame, undoLastMove, initGame, canUndo } = useGame();
   const [showScoreButtons, setShowScoreButtons] = useState(true);
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
   const [localGameState, setLocalGameState] = useState<GameState | null>(null);
@@ -95,12 +98,15 @@ const GamePlayScreen = () => {
     
     // Fix for game over modal being triggered repeatedly
     // Only show the modal once and only when the game transitions to over state
-    if (gameState?.gameOver && !showGameOverModal && !localGameState?.gameOver) {
-      // Update local game state to track when we've shown the modal
-      setLocalGameState(gameState);
-      
-      // Show the custom game over modal instead of the Alert
+    if (gameState?.gameOver && !showGameOverModal && !gameState.gameOverModalShown) {
+      // Mark that we've shown the modal in the game state
       if (isMounted) {
+        // Mark that we've shown the modal to prevent duplicate triggering
+        if (gameState) {
+          gameState.gameOverModalShown = true;
+        }
+        
+        // Show the custom game over modal
         setShowGameOverModal(true);
         
         // Animate the fade in
@@ -110,48 +116,44 @@ const GamePlayScreen = () => {
           useNativeDriver: true
         }).start();
       }
-    } else if (!gameState?.gameOver && localGameState?.gameOver) {
-      // Reset local game state tracking when game is no longer over
-      if (isMounted) {
-        setLocalGameState(gameState);
-      }
     }
     
     // Cleanup function to prevent state updates on unmounted component
     return () => {
       isMounted = false;
     };
-  }, [gameState, localGameState, gameOverFadeAnim, showGameOverModal]);
+  }, [gameState, gameOverFadeAnim, showGameOverModal]);
+
+  // Create a separate function for handling back presses
+  const handleBackPress = () => {
+    // Show end game confirmation on back button press
+    if (!showResetModal && !showGameOverModal && !showUndoModal && !showScoreModal) {
+      // Show the end game confirmation dialog
+      setShowResetModal(true);
+      
+      // Animate the fade in
+      Animated.timing(resetFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true
+      }).start();
+    } else {
+      // If there's an open modal, close it instead
+      if (showResetModal) {
+        handleCloseResetModal();
+      } else if (showGameOverModal) {
+        handleCloseGameOverModal();
+      } else if (showUndoModal) {
+        handleCloseUndoModal();
+      } else if (showScoreModal) {
+        handleCloseScoreModal();
+      }
+    }
+    return true; // Prevent default back behavior
+  };
 
   // Handle hardware back button
   useEffect(() => {
-    const handleBackPress = () => {
-      // Show reset confirmation on hardware back button press
-      if (!showResetModal && !showGameOverModal && !showUndoModal && !showScoreModal) {
-        // Same behavior as the reset button
-        setShowResetModal(true);
-        
-        // Animate the fade in
-        Animated.timing(resetFadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true
-        }).start();
-      } else {
-        // If there's an open modal, close it instead
-        if (showResetModal) {
-          handleCloseResetModal();
-        } else if (showGameOverModal) {
-          handleCloseGameOverModal();
-        } else if (showUndoModal) {
-          handleCloseUndoModal();
-        } else if (showScoreModal) {
-          handleCloseScoreModal();
-        }
-      }
-      return true; // Prevent default back behavior
-    };
-
     // Add event listener for hardware back button
     BackHandler.addEventListener('hardwareBackPress', handleBackPress);
 
@@ -159,7 +161,7 @@ const GamePlayScreen = () => {
     return () => {
       BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
     };
-  }, [showResetModal, showGameOverModal, showUndoModal, showScoreModal, resetFadeAnim]);
+  }, [showResetModal, showGameOverModal, showUndoModal, showScoreModal]);
 
   const handlePinSelection = (pin: number) => {
     // Don't allow pin selection if game is over
@@ -309,7 +311,7 @@ const GamePlayScreen = () => {
   };
 
   const handleResetPress = () => {
-    // Show the custom reset modal instead of the Alert
+    // Show the end game confirmation dialog
     setShowResetModal(true);
     
     // Animate the fade in
@@ -338,8 +340,8 @@ const GamePlayScreen = () => {
   };
 
   const handleResetConfirm = () => {
-    // Reset the game
-    resetGame();
+    // Navigate to GameSetup screen
+    navigation.navigate('GameSetup');
     
     // Close the modal with animation
     handleCloseResetModal();
@@ -347,7 +349,12 @@ const GamePlayScreen = () => {
 
   if (!gameState || !gameState.players || gameState.players.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeAreaContainer, { backgroundColor: colors.background }]}>
+        <StatusBar 
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+          backgroundColor="transparent" 
+          translucent={true}
+        />
         <Text style={[styles.noGameText, { color: colors.text }]}>No active game found.</Text>
         <TouchableOpacity
           style={[styles.newGameButton, { backgroundColor: colors.primary }]}
@@ -361,7 +368,12 @@ const GamePlayScreen = () => {
 
   if (!gameState) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeAreaContainer, { backgroundColor: colors.background }]}>
+        <StatusBar 
+          barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+          backgroundColor="transparent" 
+          translucent={true}
+        />
         <Text style={[styles.errorText, { color: colors.error }]}>
           No active game found. Please start a new game.
         </Text>
@@ -390,201 +402,245 @@ const GamePlayScreen = () => {
   const backRow = [1, 2];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Current Player Section */}
-      <View style={styles.currentPlayerSection}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {gameState?.gameOver ? 'Game Over' : 'Current Player'}
-          </Text>
-        </View>
-        {gameState?.gameOver ? (
-          <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
-            <View style={styles.activePlayerHeader}>
-              <Text style={[styles.playerName, { color: colors.text }]}>
-                {gameState.winner ? `${gameState.winner.name} Wins!` : 'Game Over'}
-              </Text>
-            </View>
-            {gameState.winner && (
-              <Text style={[styles.playerScore, { color: colors.text }]}>
-                Final Score: {gameState.winner.score}
-              </Text>
-            )}
-          </View>
-        ) : activePlayer ? (
-          <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
-            <View style={styles.activePlayerHeader}>
-              <Text style={[styles.playerName, { color: colors.text }]}>{activePlayer.name}</Text>
-              <MissIndicator 
-                consecutiveMisses={activePlayer.consecutiveMisses} 
-                size="medium" 
-                colors={colors}
-              />
-            </View>
-            <Text style={[styles.playerScore, { color: colors.text }]}>Score: {activePlayer.score}</Text>
-          </View>
-        ) : (
-          <Text style={[styles.noActivePlayer, { color: colors.text }]}>No active player</Text>
-        )}
+    <View style={[styles.safeAreaContainer, { backgroundColor: colors.background }]}>
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+        backgroundColor="transparent" 
+        translucent={true}
+      />
+      
+      {/* Header */}
+      <View style={[styles.header, { 
+        backgroundColor: colors.card,
+      }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Game in Progress</Text>
+        <View style={styles.headerRight} />
       </View>
-
-      {/* Score Buttons or Camera Button */}
-      <View style={styles.actionSection}>
-        {showScoreButtons ? (
-          <>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Pin</Text>
-            </View>
-            <View style={styles.scoreButtonsContainer}>
-              {/* Front row */}
-              <View style={styles.scoreButtonsRow}>
-                {frontRow.map(pin => (
-                  <ScoreButton 
-                    key={pin}
-                    value={pin} 
-                    selected={selectedPin === pin} 
-                    onPress={() => handlePinSelection(pin)} 
-                    color={selectedPin === pin ? colors.accent : colors.primary} 
-                    disabled={gameState?.gameOver}
-                  />
-                ))}
-              </View>
-              
-              {/* Second row */}
-              <View style={styles.scoreButtonsRow}>
-                {secondRow.map(pin => (
-                  <ScoreButton 
-                    key={pin}
-                    value={pin} 
-                    selected={selectedPin === pin} 
-                    onPress={() => handlePinSelection(pin)} 
-                    color={selectedPin === pin ? colors.accent : colors.primary} 
-                    disabled={gameState?.gameOver}
-                  />
-                ))}
-              </View>
-              
-              {/* Third row */}
-              <View style={styles.scoreButtonsRow}>
-                {thirdRow.map(pin => (
-                  <ScoreButton 
-                    key={pin}
-                    value={pin} 
-                    selected={selectedPin === pin} 
-                    onPress={() => handlePinSelection(pin)} 
-                    color={selectedPin === pin ? colors.accent : colors.primary} 
-                    disabled={gameState?.gameOver}
-                  />
-                ))}
-              </View>
-              
-              {/* Back row */}
-              <View style={styles.scoreButtonsRow}>
-                {backRow.map(pin => (
-                  <ScoreButton 
-                    key={pin}
-                    value={pin} 
-                    selected={selectedPin === pin} 
-                    onPress={() => handlePinSelection(pin)} 
-                    color={selectedPin === pin ? colors.accent : colors.primary} 
-                    disabled={gameState?.gameOver}
-                  />
-                ))}
-              </View>
-            </View>
-            
-            {/* Action Buttons Row */}
-            <View style={styles.actionButtonsRow}>
-              {/* Score Submit Button */}
-              <TouchableOpacity
-                style={[
-                  styles.scoreSubmitButton, 
-                  { 
-                    backgroundColor: gameState?.gameOver ? colors.disabled : colors.success, 
-                    flex: 2,
-                    opacity: gameState?.gameOver ? 0.5 : 1
-                  }
-                ]}
-                onPress={handleScoreSubmit}
-                disabled={gameState?.gameOver}
-              >
-                <Text style={styles.scoreSubmitButtonText}>
-                  Score {selectedPin !== null ? selectedPin : '0'}
+      
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Current Player Section */}
+        <View style={[styles.currentPlayerSection, { paddingHorizontal: 16 }]}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {gameState?.gameOver ? 'Game Over' : 'Current Player'}
+            </Text>
+          </View>
+          {gameState?.gameOver ? (
+            <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
+              <View style={styles.activePlayerHeader}>
+                <Text style={[styles.playerName, { color: colors.text }]}>
+                  {gameState.winner ? `${gameState.winner.name} Wins!` : 'Game Over'}
                 </Text>
-              </TouchableOpacity>
-              
-              {/* Undo Button */}
-              <TouchableOpacity
-                style={[styles.undoButton, { backgroundColor: colors.warning, flex: 1 }]}
-                onPress={handleUndoPress}
-              >
-                <Ionicons name="arrow-undo" size={24} color="white" />
-              </TouchableOpacity>
-              
-              {/* Reset Button */}
-              <TouchableOpacity
-                style={[styles.resetButton, { backgroundColor: colors.error, flex: 1 }]}
-                onPress={handleResetPress}
-              >
-                <Ionicons name="refresh" size={24} color="white" />
-              </TouchableOpacity>
+              </View>
+              {gameState.winner && (
+                <Text style={[styles.playerScore, { color: colors.text }]}>
+                  Final Score: {gameState.winner.score}
+                </Text>
+              )}
             </View>
-            
-            {/* Camera Button Row */}
-            <View style={styles.cameraButtonRow}>
-              <TouchableOpacity
-                style={[
-                  styles.cameraButton, 
-                  { 
-                    backgroundColor: gameState?.gameOver ? colors.disabled : colors.primary,
-                    opacity: gameState?.gameOver ? 0.5 : 1
-                  }
-                ]}
-                onPress={handleCameraPress}
-                disabled={gameState?.gameOver}
-              >
-                <Ionicons name="camera-outline" size={24} color="white" />
-                <Text style={styles.cameraButtonText}>Analyze with AI</Text>
-              </TouchableOpacity>
+          ) : activePlayer ? (
+            <View style={[styles.activePlayerCard, { backgroundColor: colors.card }]}>
+              <View style={styles.activePlayerHeader}>
+                <Text style={[styles.playerName, { color: colors.text }]}>{activePlayer.name}</Text>
+                <MissIndicator 
+                  consecutiveMisses={activePlayer.consecutiveMisses} 
+                  size="medium" 
+                  colors={colors}
+                />
+              </View>
+              <Text style={[styles.playerScore, { color: colors.text }]}>Score: {activePlayer.score}</Text>
             </View>
-          </>
-        ) : (
-          // Camera view
-          <>
-            <View style={styles.actionButtonsRow}>
-              <TouchableOpacity
-                style={[styles.cameraButton, { backgroundColor: colors.primary }]}
-                onPress={() => setShowScoreButtons(true)}
-              >
-                <Ionicons name="keypad-outline" size={24} color="white" />
-                <Text style={styles.cameraButtonText}>Manual Entry</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </View>
-
-      {/* Players List */}
-      <View style={styles.rankingsSection}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Players List</Text>
-        </View>
-        <FlatList
-          data={playersList}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <PlayerScoreCard
-              player={item}
-              rank={index + 1}
-              isActive={item.isActive}
-              isEliminated={item.isEliminated}
-              colors={colors}
-            />
+          ) : (
+            <Text style={[styles.noActivePlayer, { color: colors.text }]}>No active player</Text>
           )}
-          style={styles.rankingsList}
-          contentContainerStyle={styles.rankingsListContent}
-        />
-      </View>
+        </View>
+
+        {/* Score Buttons or Camera Button */}
+        <View style={[styles.actionSection, { paddingHorizontal: 16 }]}>
+          {showScoreButtons ? (
+            <>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Select Pin</Text>
+              </View>
+              <View style={styles.scoreButtonsContainer}>
+                {/* Front row */}
+                <View style={styles.scoreButtonsRow}>
+                  {frontRow.map(pin => (
+                    <ScoreButton 
+                      key={pin}
+                      value={pin} 
+                      selected={selectedPin === pin} 
+                      onPress={() => handlePinSelection(pin)} 
+                      color={selectedPin === pin ? colors.accent : colors.primary} 
+                      disabled={gameState?.gameOver}
+                    />
+                  ))}
+                </View>
+                
+                {/* Second row */}
+                <View style={styles.scoreButtonsRow}>
+                  {secondRow.map(pin => (
+                    <ScoreButton 
+                      key={pin}
+                      value={pin} 
+                      selected={selectedPin === pin} 
+                      onPress={() => handlePinSelection(pin)} 
+                      color={selectedPin === pin ? colors.accent : colors.primary} 
+                      disabled={gameState?.gameOver}
+                    />
+                  ))}
+                </View>
+                
+                {/* Third row */}
+                <View style={styles.scoreButtonsRow}>
+                  {thirdRow.map(pin => (
+                    <ScoreButton 
+                      key={pin}
+                      value={pin} 
+                      selected={selectedPin === pin} 
+                      onPress={() => handlePinSelection(pin)} 
+                      color={selectedPin === pin ? colors.accent : colors.primary} 
+                      disabled={gameState?.gameOver}
+                    />
+                  ))}
+                </View>
+                
+                {/* Back row */}
+                <View style={styles.scoreButtonsRow}>
+                  {backRow.map(pin => (
+                    <ScoreButton 
+                      key={pin}
+                      value={pin} 
+                      selected={selectedPin === pin} 
+                      onPress={() => handlePinSelection(pin)} 
+                      color={selectedPin === pin ? colors.accent : colors.primary} 
+                      disabled={gameState?.gameOver}
+                    />
+                  ))}
+                </View>
+              </View>
+              
+              {/* Action Buttons Row */}
+              <View style={styles.actionButtonsRow}>
+                {/* Score Submit Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.scoreSubmitButton, 
+                    { 
+                      backgroundColor: gameState?.gameOver ? colors.disabled : colors.success, 
+                      flex: 2,
+                      opacity: gameState?.gameOver ? 0.5 : 1
+                    }
+                  ]}
+                  onPress={handleScoreSubmit}
+                  disabled={gameState?.gameOver}
+                >
+                  <Text style={styles.scoreSubmitButtonText}>
+                    Score {selectedPin !== null ? selectedPin : '0'}
+                  </Text>
+                </TouchableOpacity>
+                
+                {/* Undo Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.undoButton, 
+                    { 
+                      backgroundColor: canUndo ? colors.warning : colors.disabled, 
+                      flex: 1,
+                      opacity: canUndo ? 1 : 0.5
+                    }
+                  ]}
+                  onPress={handleUndoPress}
+                  disabled={!canUndo}
+                >
+                  <Ionicons name="arrow-undo" size={24} color="white" />
+                </TouchableOpacity>
+                
+                {/* Exit Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.exitButton, 
+                    { 
+                      backgroundColor: 'red', 
+                      flex: 1 
+                    }
+                  ]}
+                  onPress={handleResetPress}
+                >
+                  <Ionicons name="exit-outline" size={24} color="white" />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Camera Button Row */}
+              <View style={styles.cameraButtonRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.cameraButton, 
+                    { 
+                      backgroundColor: gameState?.gameOver ? colors.disabled : colors.primary,
+                      opacity: gameState?.gameOver ? 0.5 : 1
+                    }
+                  ]}
+                  onPress={handleCameraPress}
+                  disabled={gameState?.gameOver}
+                >
+                  <Ionicons name="camera-outline" size={24} color="white" />
+                  <Text style={styles.cameraButtonText}>Analyze with AI</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            // Camera view
+            <>
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity
+                  style={[styles.cameraButton, { backgroundColor: colors.primary }]}
+                  onPress={() => setShowScoreButtons(true)}
+                >
+                  <Ionicons name="keypad-outline" size={24} color="white" />
+                  <Text style={styles.cameraButtonText}>Manual Entry</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* Players List */}
+        <View style={[styles.rankingsSection, { paddingHorizontal: 16 }]}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Players List</Text>
+          </View>
+          <View style={{ height: playersList.length * 80 }}>
+            <FlatList
+              data={playersList}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item, index }) => (
+                <PlayerScoreCard
+                  player={item}
+                  rank={index + 1}
+                  isActive={item.isActive}
+                  isEliminated={item.isEliminated}
+                  colors={colors}
+                />
+              )}
+              style={styles.rankingsList}
+              contentContainerStyle={styles.rankingsListContent}
+              nestedScrollEnabled={true}
+              scrollEnabled={false}
+            />
+          </View>
+        </View>
+      </ScrollView>
 
       {/* Score Update Modal */}
       <Modal
@@ -602,7 +658,11 @@ const GamePlayScreen = () => {
             activeOpacity={1} 
             onPress={(e) => e.stopPropagation()}
           >
-            <Animated.View style={[styles.scoreUpdateModal, { opacity: fadeAnim, backgroundColor: colors.card }]}>
+            <Animated.View style={[styles.scoreUpdateModal, { 
+              opacity: fadeAnim, 
+              backgroundColor: colors.card,
+              borderColor: colors.border
+            }]}>
               <View style={styles.scoreUpdateModalHeader}>
                 <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Score Update</Text>
                 <TouchableOpacity
@@ -624,7 +684,7 @@ const GamePlayScreen = () => {
                     </View>
                     
                     <View style={styles.scoreChangeContainer}>
-                      <View style={styles.scoreBox}>
+                      <View style={[styles.scoreBox, { backgroundColor: colors.card }]}>
                         <Text style={[styles.scoreLabel, { color: colors.text }]}>Previous</Text>
                         <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.previousScore}</Text>
                       </View>
@@ -637,7 +697,7 @@ const GamePlayScreen = () => {
                         />
                       </View>
                       
-                      <View style={styles.scoreBox}>
+                      <View style={[styles.scoreBox, { backgroundColor: colors.card }]}>
                         <Text style={[styles.scoreLabel, { color: colors.text }]}>New</Text>
                         <Text style={[styles.scoreValue, { color: colors.text }]}>{scoreUpdateInfo.newScore}</Text>
                       </View>
@@ -645,8 +705,8 @@ const GamePlayScreen = () => {
                     
                     <View style={[styles.scoreAddedContainer, { 
                       backgroundColor: scoreUpdateInfo.scoreAdded > 0 
-                        ? 'rgba(75, 181, 67, 0.1)' 
-                        : 'rgba(255, 193, 7, 0.1)' 
+                        ? `${colors.success}20`
+                        : `${colors.warning}20`
                     }]}>
                       <Ionicons 
                         name={scoreUpdateInfo.scoreAdded > 0 ? "add-circle" : "remove-circle"} 
@@ -656,9 +716,7 @@ const GamePlayScreen = () => {
                       <Text style={[styles.scoreAddedText, { 
                         color: scoreUpdateInfo.scoreAdded > 0 ? colors.success : colors.warning 
                       }]}>
-                        {scoreUpdateInfo.scoreAdded > 0 
-                          ? `Added ${scoreUpdateInfo.scoreAdded} points` 
-                          : 'Missed shot'}
+                        {scoreUpdateInfo.scoreAdded > 0 ? '+' : ''}{scoreUpdateInfo.scoreAdded} points
                       </Text>
                     </View>
                     
@@ -708,7 +766,11 @@ const GamePlayScreen = () => {
             activeOpacity={1} 
             onPress={(e) => e.stopPropagation()}
           >
-            <Animated.View style={[styles.scoreUpdateModal, { opacity: gameOverFadeAnim, backgroundColor: colors.card }]}>
+            <Animated.View style={[styles.scoreUpdateModal, { 
+              opacity: gameOverFadeAnim, 
+              backgroundColor: colors.card,
+              borderColor: colors.border
+            }]}>
               <View style={styles.scoreUpdateModalHeader}>
                 <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Game Over</Text>
                 <TouchableOpacity
@@ -732,7 +794,7 @@ const GamePlayScreen = () => {
                     
                     {/* Score Info */}
                     <View style={styles.scoreChangeContainer}>
-                      <View style={styles.scoreBox}>
+                      <View style={[styles.scoreBox, { backgroundColor: colors.card }]}>
                         <Text style={[styles.scoreLabel, { color: colors.text }]}>Final Score</Text>
                         <Text style={[styles.scoreValue, { color: colors.text }]}>{gameState.winner.score}</Text>
                       </View>
@@ -742,8 +804,7 @@ const GamePlayScreen = () => {
                     {scoreUpdateInfo && (
                       <>
                         <View style={[styles.scoreAddedContainer, { 
-                          backgroundColor: 'rgba(75, 181, 67, 0.1)',
-                          marginTop: 15
+                          backgroundColor: `${colors.success}20`
                         }]}>
                           <Ionicons name="checkmark-circle" size={24} color={colors.success} />
                           <Text style={[styles.scoreAddedText, { color: colors.success }]}>
@@ -792,7 +853,11 @@ const GamePlayScreen = () => {
             activeOpacity={1} 
             onPress={(e) => e.stopPropagation()}
           >
-            <Animated.View style={[styles.scoreUpdateModal, { opacity: undoFadeAnim, backgroundColor: colors.card }]}>
+            <Animated.View style={[styles.scoreUpdateModal, { 
+              opacity: undoFadeAnim, 
+              backgroundColor: colors.card,
+              borderColor: colors.border
+            }]}>
               <View style={styles.scoreUpdateModalHeader}>
                 <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Undo Last Move</Text>
                 <TouchableOpacity
@@ -811,16 +876,16 @@ const GamePlayScreen = () => {
               
               <View style={styles.actionButtonsRow}>
                 <TouchableOpacity
-                  style={[styles.undoButton, { backgroundColor: colors.warning, flex: 1 }]}
+                  style={[styles.undoButton, { backgroundColor: colors.primary, flex: 1 }]}
                   onPress={handleCloseUndoModal}
                 >
                   <Text style={styles.undoButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.resetButton, { backgroundColor: colors.error, flex: 1 }]}
+                  style={[styles.exitButton, { backgroundColor: colors.warning, flex: 1 }]}
                   onPress={confirmUndo}
                 >
-                  <Text style={styles.resetButtonText}>Undo</Text>
+                  <Text style={styles.exitButtonText}>Undo</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
@@ -844,9 +909,13 @@ const GamePlayScreen = () => {
             activeOpacity={1} 
             onPress={(e) => e.stopPropagation()}
           >
-            <Animated.View style={[styles.scoreUpdateModal, { opacity: resetFadeAnim, backgroundColor: colors.card }]}>
+            <Animated.View style={[styles.scoreUpdateModal, { 
+              opacity: resetFadeAnim, 
+              backgroundColor: colors.card,
+              borderColor: colors.border
+            }]}>
               <View style={styles.scoreUpdateModalHeader}>
-                <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>Reset Game</Text>
+                <Text style={[styles.scoreUpdateModalTitle, { color: colors.text }]}>End Game</Text>
                 <TouchableOpacity
                   style={styles.scoreUpdateModalCloseButton}
                   onPress={handleCloseResetModal}
@@ -857,22 +926,22 @@ const GamePlayScreen = () => {
               
               <View style={styles.scoreUpdateModalContent}>
                 <Text style={[styles.scoreUpdateModalText, { color: colors.text, fontSize: 16, marginBottom: 15, textAlign: 'center' }]}>
-                  Are you sure you want to reset the entire game? This action cannot be undone.
+                  Do you want to end the current game and go back to setup?
                 </Text>
               </View>
               
               <View style={styles.actionButtonsRow}>
                 <TouchableOpacity
-                  style={[styles.undoButton, { backgroundColor: colors.warning, flex: 1 }]}
+                  style={[styles.undoButton, { backgroundColor: colors.primary, flex: 1 }]}
                   onPress={handleCloseResetModal}
                 >
                   <Text style={styles.undoButtonText}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.resetButton, { backgroundColor: colors.error, flex: 1 }]}
+                  style={[styles.exitButton, { backgroundColor: 'red', flex: 1 }]}
                   onPress={handleResetConfirm}
                 >
-                  <Text style={styles.resetButtonText}>Reset</Text>
+                  <Text style={styles.exitButtonText}>Go to Setup</Text>
                 </TouchableOpacity>
               </View>
             </Animated.View>
@@ -886,10 +955,36 @@ const GamePlayScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+  },
+  safeAreaContainer: {
+    flex: 1,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 10,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+    zIndex: 10,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerRight: {
+    width: 40,
   },
   currentPlayerSection: {
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -927,6 +1022,7 @@ const styles = StyleSheet.create({
   },
   actionSection: {
     marginBottom: 12,
+    paddingHorizontal: 16,
   },
   scoreButtonsContainer: {
     marginBottom: 12,
@@ -973,16 +1069,13 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     marginRight: 10,
   },
-  resetButton: {
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
+  exitButton: {
+    backgroundColor: 'red',
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 4,
     justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
+    alignItems: 'center',
   },
   cameraButtonRow: {
     marginBottom: 16,
@@ -1007,12 +1100,14 @@ const styles = StyleSheet.create({
   },
   rankingsSection: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   rankingsList: {
     flex: 1,
   },
   rankingsListContent: {
     paddingTop: 8,
+    paddingBottom: 80, // Add more padding at the bottom
   },
   noGameText: {
     fontSize: 18,
@@ -1039,62 +1134,78 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 16,
   },
   scoreUpdateModal: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    width: '80%',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(128,128,128,0.2)',
   },
   scoreUpdateModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    width: '100%',
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.2)',
+    marginBottom: 20,
   },
   scoreUpdateModalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
   },
   scoreUpdateModalCloseButton: {
     padding: 8,
   },
   scoreUpdateModalContent: {
-    marginBottom: 16,
+    marginBottom: 20,
+    width: '100%',
   },
   scoreUpdateModalText: {
     fontSize: 16,
-    marginBottom: 15,
+    marginBottom: 16,
     textAlign: 'center',
   },
   playerInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   playerInfoText: {
-    fontSize: 16,
-    marginLeft: 8,
+    fontSize: 18,
+    marginLeft: 12,
   },
   scoreChangeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    width: '100%',
   },
   scoreBox: {
-    padding: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    padding: 12,
+    borderRadius: 8,
     width: '30%',
     alignItems: 'center',
+    minHeight: 70,
+    justifyContent: 'center',
   },
   scoreLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
+    marginBottom: 6,
   },
   scoreValue: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   scoreArrow: {
@@ -1102,24 +1213,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreAddedContainer: {
-    padding: 8,
-    borderRadius: 4,
+    padding: 12,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
+    width: '100%',
   },
   scoreAddedText: {
     fontSize: 16,
-    marginLeft: 8,
+    marginLeft: 12,
+    flex: 1,
   },
   missesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   missesText: {
     fontSize: 16,
-    marginLeft: 8,
+    marginLeft: 12,
   },
   closeModalButton: {
     padding: 10,
@@ -1145,7 +1258,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  resetButtonText: {
+  exitButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
@@ -1153,28 +1266,33 @@ const styles = StyleSheet.create({
   gameOverButtonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10,
     width: '100%',
+    marginTop: 16,
   },
   gameOverButton: {
-    padding: 12,
+    padding: 14,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
     flex: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   gameOverButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingVertical: 16,
+    paddingBottom: 80, // Add more padding at the bottom
   },
 });
 

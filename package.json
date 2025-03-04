@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-community/masked-view": "^0.1.11",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
@@ -22,6 +23,7 @@
     "expo-camera-interface": "^3.0.0",
     "expo-gl": "^13.6.0",
     "expo-media-library": "^17.0.6",
+    "expo-splash-screen": "^0.29.22",
     "expo-status-bar": "~2.0.1",
     "react": "18.3.1",
     "react-native": "0.76.7",

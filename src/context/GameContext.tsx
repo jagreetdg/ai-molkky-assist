@@ -8,6 +8,7 @@ interface GameContextType {
   updatePlayerScore: (score: number) => GameState;
   resetGame: () => void;
   undoLastMove: () => void;
+  canUndo: boolean;
 }
 
 // Create a global variable to store the game state
@@ -107,6 +108,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updatePlayerScore,
         resetGame,
         undoLastMove,
+        canUndo: gameStateHistory.length > 0,
       }}
     >
       {children}
