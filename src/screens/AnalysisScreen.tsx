@@ -53,11 +53,14 @@ const AnalysisScreen = () => {
     analyzeImage();
   }, [imageUri]);
 
+  const handleGoBack = () => {
+    navigation.navigate('GamePlay');
+  };
+
   // Handle hardware back button
   useEffect(() => {
     const handleBackPress = () => {
-      // Navigate back to GamePlay screen instead of using the default back behavior
-      navigation.navigate('GamePlay');
+      handleGoBack();
       return true; // Prevent default behavior
     };
 
@@ -156,7 +159,7 @@ const AnalysisScreen = () => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.goBack()}
+            onPress={handleGoBack}
           >
             <Ionicons name="arrow-back-outline" size={20} color="white" />
             <Text style={styles.buttonText}>Back to Game</Text>
@@ -244,9 +247,9 @@ const AnalysisScreen = () => {
             <Text style={[styles.errorText, { color: colors.error }]}>{analysisError}</Text>
             <TouchableOpacity 
               style={[styles.button, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.goBack()}
+              onPress={handleGoBack}
             >
-              <Text style={styles.buttonText}>Try Again</Text>
+              <Text style={styles.buttonText}>Return to Game</Text>
             </TouchableOpacity>
           </View>
         ) : (
