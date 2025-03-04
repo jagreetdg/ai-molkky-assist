@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   ScrollView,
   Dimensions,
-  SafeAreaView,
   Platform,
   BackHandler,
+  StatusBar,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -28,7 +28,7 @@ const AnalysisScreen = () => {
   const navigation = useNavigation<AnalysisScreenNavigationProp>();
   const route = useRoute<AnalysisScreenRouteProp>();
   const { imageUri } = route.params;
-  const { colors } = useTheme();
+  const { colors, isDarkMode } = useTheme();
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [pinStates, setPinStates] = useState<PinState[]>([]);
@@ -53,11 +53,14 @@ const AnalysisScreen = () => {
     analyzeImage();
   }, [imageUri]);
 
+  const handleGoBack = () => {
+    navigation.navigate('GamePlay');
+  };
+
   // Handle hardware back button
   useEffect(() => {
     const handleBackPress = () => {
-      // Navigate back to GamePlay screen instead of using the default back behavior
-      navigation.navigate('GamePlay');
+      handleGoBack();
       return true; // Prevent default behavior
     };
 
@@ -156,7 +159,7 @@ const AnalysisScreen = () => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.goBack()}
+            onPress={handleGoBack}
           >
             <Ionicons name="arrow-back-outline" size={20} color="white" />
             <Text style={styles.buttonText}>Back to Game</Text>
@@ -218,8 +221,24 @@ const AnalysisScreen = () => {
   };
   
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView bounces={false}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleGoBack}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Analysis</Text>
+        <View style={styles.headerRight} />
+      </View>
+      
+      <ScrollView 
+        bounces={false}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.imageContainer}>
           <View style={styles.imageFrame}>
             <Image source={{ uri: imageUri }} style={styles.image} />
@@ -244,22 +263,46 @@ const AnalysisScreen = () => {
             <Text style={[styles.errorText, { color: colors.error }]}>{analysisError}</Text>
             <TouchableOpacity 
               style={[styles.button, { backgroundColor: colors.primary }]}
-              onPress={() => navigation.goBack()}
+              onPress={handleGoBack}
             >
-              <Text style={styles.buttonText}>Try Again</Text>
+              <Text style={styles.buttonText}>Return to Game</Text>
             </TouchableOpacity>
           </View>
         ) : (
           !isAnalyzing && renderOptimalMoveInfo()
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    zIndex: 10,
+  },
+  backButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerRight: {
+    width: 24,
+  },
+  scrollContent: {
+    paddingVertical: 16,
   },
   imageContainer: {
     width: '100%',

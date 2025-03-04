@@ -47,4 +47,8 @@ export interface GameState {
    * Winning player if game is over
    */
   winner: Player | null;
+  /**
+   * Flag to track if game over modal has been shown
+   */
+  gameOverModalShown?: boolean;
 }
