@@ -41,6 +41,7 @@ const CameraScreen = () => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isCapturing, setIsCapturing] = useState(false);
 	const [showCaptureOverlay, setShowCaptureOverlay] = useState(false);
+	const [initializationError, setInitializationError] = useState<string | null>(null);
 
 	const cameraRef = useRef<CameraView>(null);
 
@@ -50,10 +51,7 @@ const CameraScreen = () => {
 				await initTensorFlow();
 			} catch (error) {
 				console.error("Failed to initialize TensorFlow.js:", error);
-				Alert.alert(
-					"Error",
-					"Failed to initialize machine learning engine. Some features may not work correctly."
-				);
+				setInitializationError("Failed to initialize AI engine. Please restart the app.");
 			} finally {
 				setIsLoading(false);
 			}
@@ -85,7 +83,7 @@ const CameraScreen = () => {
 					await requestPermission();
 				}
 			} catch (error) {
-				console.error                ("Failed to request media permissions:", error);
+				console.error("Failed to request media permissions:", error);
 			}
 		})();
 	}, [permission, requestPermission]);
@@ -131,7 +129,22 @@ const CameraScreen = () => {
 		return (
 			<View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
 				<ActivityIndicator size="large" color={colors.primary} />
-				<Text style={[styles.loadingText, { color: colors.text }]}>Initializing camera...</Text>
+				<Text style={[styles.loadingText, { color: colors.text }]}>Initializing AI engine...</Text>
+			</View>
+		);
+	}
+
+	if (initializationError) {
+		return (
+			<View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+				<Ionicons name="alert-circle-outline" size={64} color={colors.error} />
+				<Text style={[styles.errorText, { color: colors.text }]}>{initializationError}</Text>
+				<TouchableOpacity
+					style={[styles.errorButton, { backgroundColor: colors.primary }]}
+					onPress={() => navigation.goBack()}
+				>
+					<Text style={styles.errorButtonText}>Go Back</Text>
+				</TouchableOpacity>
 			</View>
 		);
 	}
@@ -210,10 +223,31 @@ const CameraScreen = () => {
 						</View>
 					</View>
 					
+					{/* Target area indicator */}
+					<View style={styles.targetArea}>
+						<View style={styles.targetCorner} />
+						<View
+							style={[styles.targetCorner, { right: 0, borderTopRightRadius: 16 }]}
+						/>
+						<View
+							style={[
+								styles.targetCorner,
+								{ bottom: 0, borderBottomLeftRadius: 16 },
+							]}
+						/>
+						<View
+							style={[
+								styles.targetCorner,
+								{ bottom: 0, right: 0, borderBottomRightRadius: 16 },
+							]}
+						/>
+					</View>
+
 					{/* Capture overlay */}
 					{showCaptureOverlay && (
 						<View style={styles.captureOverlay}>
 							<ActivityIndicator size="large" color="white" />
+							<Text style={styles.captureText}>Processing...</Text>
 						</View>
 					)}
 				</View>
@@ -273,16 +307,71 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: "black",
 	},
+	loadingContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	loadingText: {
+		fontSize: 18,
+		fontWeight: "bold",
+		marginTop: 16,
+	},
+	errorContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		padding: 20,
+	},
+	errorText: {
+		fontSize: 16,
+		textAlign: "center",
+		marginVertical: 20,
+	},
+	errorButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 24,
+		borderRadius: 8,
+	},
+	errorButtonText: {
+		color: "white",
+		fontWeight: "bold",
+	},
+	permissionContainer: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		padding: 20,
+	},
+	permissionText: {
+		fontSize: 18,
+		fontWeight: "bold",
+		marginTop: 16,
+		textAlign: "center",
+	},
+	permissionSubtext: {
+		fontSize: 14,
+		textAlign: "center",
+		marginTop: 8,
+		marginBottom: 24,
+	},
+	permissionButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 24,
+		borderRadius: 8,
+	},
+	permissionButtonText: {
+		color: "white",
+		fontWeight: "bold",
+	},
 	header: {
 		flexDirection: "row",
 		alignItems: "center",
-		paddingHorizontal: 20,
-		paddingVertical: 16,
-		backgroundColor: "rgba(0,0,0,0.6)",
+		paddingHorizontal: 16,
+		paddingVertical: 12,
 	},
 	backButton: {
 		padding: 8,
-		borderRadius: 20,
 	},
 	headerTextContainer: {
 		flex: 1,
@@ -291,42 +380,30 @@ const styles = StyleSheet.create({
 	guideText: {
 		color: "white",
 		fontSize: 16,
-		textAlign: "center",
-		fontWeight: "500",
+		fontWeight: "bold",
 	},
 	spacer: {
 		width: 44,
 	},
 	cameraContainer: {
-		flex: 1,
-		alignItems: "center",
+		width: "100%",
+		height: CAMERA_SIZE,
 		justifyContent: "center",
-		backgroundColor: "#000",
+		alignItems: "center",
 	},
 	cameraFrame: {
 		width: CAMERA_SIZE,
 		height: CAMERA_SIZE,
-		borderRadius: 12,
 		overflow: "hidden",
 		position: "relative",
-		...Platform.select({
-			ios: {
-				shadowColor: "#000",
-				shadowOffset: { width: 0, height: 2 },
-				shadowOpacity: 0.3,
-				shadowRadius: 4,
-			},
-			android: {
-				elevation: 5,
-			},
-		}),
 	},
 	camera: {
-		aspectRatio: 1,
+		width: CAMERA_SIZE,
+		height: CAMERA_SIZE,
 	},
 	gridOverlay: {
 		...StyleSheet.absoluteFillObject,
-		backgroundColor: "transparent",
+		pointerEvents: "none",
 	},
 	gridRow: {
 		flex: 1,
@@ -339,15 +416,38 @@ const styles = StyleSheet.create({
 		justifyContent: "space-between",
 	},
 	gridLine: {
-		flex: 1,
-		borderWidth: 0.5,
-		borderColor: "rgba(255,255,255,0.3)",
+		position: "absolute",
+		backgroundColor: "rgba(255, 255, 255, 0.3)",
+		height: 1,
+		width: 1,
+	},
+	targetArea: {
+		...StyleSheet.absoluteFillObject,
+		borderWidth: 2,
+		borderColor: "rgba(255, 255, 255, 0.5)",
+		borderRadius: 16,
+		margin: 40,
+		pointerEvents: "none",
+	},
+	targetCorner: {
+		position: "absolute",
+		width: 20,
+		height: 20,
+		borderColor: "white",
+		borderTopWidth: 3,
+		borderLeftWidth: 3,
+		borderTopLeftRadius: 16,
 	},
 	captureOverlay: {
 		...StyleSheet.absoluteFillObject,
-		backgroundColor: "rgba(0,0,0,0.5)",
+		backgroundColor: "rgba(0, 0, 0, 0.7)",
 		justifyContent: "center",
 		alignItems: "center",
+	},
+	captureText: {
+		color: "white",
+		fontSize: 16,
+		marginTop: 16,
 	},
 	controlsContainer: {
 		flexDirection: "row",
@@ -385,43 +485,5 @@ const styles = StyleSheet.create({
 		height: 54,
 		borderRadius: 27,
 		backgroundColor: "white",
-	},
-	loadingContainer: {
-		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	loadingText: {
-		marginTop: 10,
-		fontSize: 16,
-	},
-	permissionContainer: {
-		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-		padding: 20,
-	},
-	permissionText: {
-		fontSize: 18,
-		marginTop: 20,
-		textAlign: "center",
-		fontWeight: "600",
-	},
-	permissionSubtext: {
-		fontSize: 14,
-		marginTop: 10,
-		textAlign: "center",
-		opacity: 0.7,
-	},
-	permissionButton: {
-		marginTop: 20,
-		paddingVertical: 12,
-		paddingHorizontal: 24,
-		borderRadius: 8,
-	},
-	permissionButtonText: {
-		color: "white",
-		fontSize: 16,
-		fontWeight: "600",
 	},
 });

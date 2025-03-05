@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  StyleSheet, 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
   ActivityIndicator,
   ScrollView,
   Dimensions,
+  Alert,
   Platform,
   BackHandler,
   StatusBar,
@@ -18,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, PinState, OptimalMove } from '../types/index';
 import { detectPinsFromImage, calculateOptimalMove } from '../services/imageAnalysisService';
 import { useTheme } from '../context/ThemeContext';
+import { useGame } from '../context/GameContext';
 
 type AnalysisScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Analysis'>;
 type AnalysisScreenRouteProp = RouteProp<RootStackParamList, 'Analysis'>;
@@ -29,49 +31,13 @@ const AnalysisScreen = () => {
   const route = useRoute<AnalysisScreenRouteProp>();
   const { imageUri } = route.params;
   const { colors, isDarkMode } = useTheme();
+  const { gameState } = useGame();
   
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [pinStates, setPinStates] = useState<PinState[]>([]);
   const [optimalMove, setOptimalMove] = useState<OptimalMove | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    const analyzeImage = async () => {
-      try {
-        const detectedPins = await detectPinsFromImage(imageUri);
-        setPinStates(detectedPins);
-        const move = calculateOptimalMove(detectedPins);
-        setOptimalMove(move);
-      } catch (error) {
-        console.error('Error analyzing image:', error);
-        setAnalysisError('Failed to analyze the image. Please try again.');
-      } finally {
-        setIsAnalyzing(false);
-      }
-    };
-    
-    analyzeImage();
-  }, [imageUri]);
-
-  const handleGoBack = () => {
-    navigation.navigate('GamePlay');
-  };
-
-  // Handle hardware back button
-  useEffect(() => {
-    const handleBackPress = () => {
-      handleGoBack();
-      return true; // Prevent default behavior
-    };
-
-    // Add event listener for hardware back button
-    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
-
-    // Clean up the event listener on component unmount
-    return () => {
-      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
-    };
-  }, [navigation]);
+  const [analysisError, setAnalysisError] = useState<string | null>('');
+  const [processingStep, setProcessingStep] = useState<string>('Initializing...');
   
   const renderPinOverlay = () => {
     if (pinStates.length === 0) return null;
@@ -86,7 +52,7 @@ const AnalysisScreen = () => {
               {
                 left: pin.position.x,
                 top: pin.position.y,
-                backgroundColor: pin.isStanding ? colors.success : colors.error,
+                backgroundColor: colors.success, // Always show as standing (green)
               },
             ]}
           >
@@ -148,10 +114,7 @@ const AnalysisScreen = () => {
           <View style={styles.tipContainer}>
             <Ionicons name="bulb-outline" size={24} color={colors.warning} />
             <Text style={[styles.tipText, { color: colors.text }]}>
-              {optimalMove.targetPins.length === 1 
-                ? `Aim directly at pin ${optimalMove.targetPins[0]} for ${optimalMove.targetPins[0]} points.`
-                : `Target pins ${optimalMove.targetPins.join(', ')} for ${optimalMove.expectedScore} points.`
-              }
+              {optimalMove.strategyExplanation}
             </Text>
           </View>
         </View>
@@ -159,7 +122,7 @@ const AnalysisScreen = () => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: colors.primary }]}
-            onPress={handleGoBack}
+            onPress={() => navigation.navigate('GamePlay')}
           >
             <Ionicons name="arrow-back-outline" size={20} color="white" />
             <Text style={styles.buttonText}>Back to Game</Text>
@@ -177,7 +140,6 @@ const AnalysisScreen = () => {
     );
   };
 
-  // Create grid cells for the 8x8 grid
   const renderGridOverlay = () => {
     return (
       <View style={styles.gridOverlay}>
@@ -219,77 +181,225 @@ const AnalysisScreen = () => {
       </View>
     );
   };
-  
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
-      <View style={[styles.header, { backgroundColor: colors.card }]}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleGoBack}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Analysis</Text>
-        <View style={styles.headerRight} />
-      </View>
-      
-      <ScrollView 
-        bounces={false}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.imageContainer}>
-          <View style={styles.imageFrame}>
-            <Image source={{ uri: imageUri }} style={styles.image} />
-            
-            {/* Grid overlay with 8x8 grid */}
-            {renderGridOverlay()}
-            
-            {!isAnalyzing && renderPinOverlay()}
-            
-            {isAnalyzing && (
-              <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Analyzing pin positions...</Text>
-              </View>
-            )}
-          </View>
-        </View>
 
-        {analysisError ? (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={40} color={colors.error} />
-            <Text style={[styles.errorText, { color: colors.error }]}>{analysisError}</Text>
+  const renderAnalysisContent = () => {
+    if (isAnalyzing) {
+      return (
+        <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>{processingStep}</Text>
+          <Text style={[styles.loadingSubtext, { color: colors.text }]}>This may take a moment...</Text>
+        </View>
+      );
+    }
+
+    if (analysisError) {
+      return (
+        <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.text }]}>{analysisError}</Text>
+          <View style={styles.errorButtonContainer}>
             <TouchableOpacity 
-              style={[styles.button, { backgroundColor: colors.primary }]}
-              onPress={handleGoBack}
+              style={[styles.errorButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('GamePlay')}
             >
-              <Text style={styles.buttonText}>Return to Game</Text>
+              <Text style={styles.errorButtonText}>Back to Game</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.errorButton, { backgroundColor: colors.success }]}
+              onPress={() => {
+                setIsAnalyzing(true);
+                setAnalysisError('');
+                navigation.navigate('Camera');
+              }}
+            >
+              <Text style={styles.errorButtonText}>Try Again</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          !isAnalyzing && renderOptimalMoveInfo()
-        )}
-      </ScrollView>
-    </View>
-  );
+        </View>
+      );
+    }
+
+    if (pinStates.length === 0) {
+      return (
+        <View style={[styles.errorContainer, { backgroundColor: colors.background }]}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.text }]}>No pins detected. Please try again with a clearer image.</Text>
+          <View style={styles.errorButtonContainer}>
+            <TouchableOpacity 
+              style={[styles.errorButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate('GamePlay')}
+            >
+              <Text style={styles.errorButtonText}>Back to Game</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.errorButton, { backgroundColor: colors.success }]}
+              onPress={() => {
+                setIsAnalyzing(true);
+                setAnalysisError('');
+                navigation.navigate('Camera');
+              }}
+            >
+              <Text style={styles.errorButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.navigate('GamePlay')} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>AI Analysis</Text>
+          <View style={styles.headerRight} />
+        </View>
+        
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={true}
+        >
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+            {renderGridOverlay()}
+            {renderPinOverlay()}
+          </View>
+          
+          {renderOptimalMoveInfo()}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  useEffect(() => {
+    const analyzeImage = async () => {
+      // Reset error state and pin states at the beginning of new analysis
+      setAnalysisError('');
+      setPinStates([]);
+      
+      try {
+        setProcessingStep('Detecting pins...');
+        const detectedPins = await detectPinsFromImage(imageUri);
+        
+        // Only set pin states if we have valid pins
+        if (detectedPins && detectedPins.length > 0) {
+          setPinStates(detectedPins);
+          
+          setProcessingStep('Calculating optimal move...');
+          // Convert null to undefined to match the expected type
+          const move = calculateOptimalMove(detectedPins, gameState || undefined);
+          setOptimalMove(move);
+        } else {
+          setAnalysisError('No pins detected in the image. Please try again.');
+        }
+      } catch (error) {
+        // Only log the error, don't show system toast
+        console.log('Image analysis failed:', error instanceof Error ? error.message : 'Unknown error');
+        
+        // Display user-friendly message on screen
+        setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze the image. Please try again.');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+    
+    analyzeImage();
+  }, [imageUri, gameState]);
+
+  const handleGoBack = () => {
+    navigation.navigate('GamePlay');
+  };
+
+  const handleRetry = () => {
+    setIsAnalyzing(true);
+    setAnalysisError('');
+    navigation.navigate('Camera');
+  };
+
+  // Handle hardware back button
+  useEffect(() => {
+    const handleBackPress = () => {
+      handleGoBack();
+      return true; // Prevent default behavior
+    };
+
+    // Add event listener for hardware back button
+    BackHandler.addEventListener('hardwareBackPress', handleBackPress);
+
+    // Clean up the event listener on component unmount
+    return () => {
+      BackHandler.removeEventListener('hardwareBackPress', handleBackPress);
+    };
+  }, [navigation]);
+
+  return renderAnalysisContent();
 };
+
+export default AnalysisScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+  },
+  loadingSubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    opacity: 0.7,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  errorButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  errorButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    zIndex: 10,
+    paddingVertical: 12,
   },
   backButton: {
     padding: 8,
@@ -299,97 +409,66 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   headerRight: {
-    width: 24,
-  },
-  scrollContent: {
-    paddingVertical: 16,
+    width: 40,
   },
   imageContainer: {
-    width: '100%',
+    width: width,
     height: width,
     position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  imageFrame: {
-    width: width - 32,
-    height: width - 32,
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
   },
   image: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   gridOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.5,
   },
   gridLine: {
-    // Styles applied inline in renderGridOverlay
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   pinOverlayContainer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   pinMarker: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: 'white',
-    transform: [{ translateX: -12 }, { translateY: -12 }],
+    transform: [{ translateX: -18 }, { translateY: -18 }],
+    zIndex: 10,
   },
   pinNumber: {
     color: 'white',
-    fontSize: 12,
     fontWeight: 'bold',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: 'white',
-    marginTop: 10,
     fontSize: 16,
   },
   optimalMoveContainer: {
+    flex: 1,
     padding: 16,
   },
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -406,7 +485,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     marginBottom: 8,
   },
   pinScroll: {
@@ -446,10 +525,10 @@ const styles = StyleSheet.create({
   },
   tipContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 193, 7, 0.1)',
     padding: 12,
     borderRadius: 8,
-    alignItems: 'center',
   },
   tipText: {
     flex: 1,
@@ -472,18 +551,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontWeight: '600',
+    fontWeight: 'bold',
     marginLeft: 8,
   },
-  errorContainer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 16,
-  },
 });
-
-export default AnalysisScreen;

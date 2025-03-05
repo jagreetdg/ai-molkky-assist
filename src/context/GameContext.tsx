@@ -16,7 +16,7 @@ let globalGameState: GameState | null = null;
 // Store previous game states for undo functionality
 let gameStateHistory: GameState[] = [];
 
-const GameContext = createContext<GameContextType | undefined>(undefined);
+export const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState | null>(globalGameState);
