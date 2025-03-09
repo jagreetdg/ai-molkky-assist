@@ -23,7 +23,10 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.molkkyassistai"
+      "package": "com.yourcompany.molkkyassistai",
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/icon.png"
@@ -35,6 +38,12 @@
           "cameraPermission": "Allow Mölkky Assist AI to access your camera to analyze pin positions."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b087adf8-e04a-4917-a845-de438740978e"
+      }
+    },
+    "owner": "jagreetdg"
   }
 }
